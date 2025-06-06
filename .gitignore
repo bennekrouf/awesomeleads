@@ -1,0 +1,9 @@
+/target
+/data
+data/
+data
+out
+repomix-output.md
+.env
+data/projects.db
+data/projects.db.wal

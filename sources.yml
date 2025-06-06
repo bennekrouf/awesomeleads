@@ -1,0 +1,404 @@
+sources:
+  - name: "Sindre Sorhus Awesome"
+    owner: "sindresorhus"
+    repo: "awesome"
+    output_filename: "sindresorhus_awesome"
+    filters:
+      exclude_patterns:
+        - "/wiki/"
+        - "/docs/"
+        - "/doc/"
+        - "wikipedia.org"
+        - "stackoverflow.com"
+        - "/issues/"
+        - "/pull/"
+        - "/releases/"
+        - "medium.com"
+        - "blog."
+        - "news."
+        - "awesome.re"
+      allow_patterns: []
+      skip_line_patterns:
+        - "support my work"
+        - "get in touch"
+        - "license"
+    rules:
+      require_https_links: true
+      skip_headers: true
+      skip_empty_lines: true
+      is_meta_source: true  # NEW: Mark as meta-source
+
+  - name: "Ahmet Web3 Awesome"
+    owner: "ahmet"
+    repo: "awesome-web3"
+    output_filename: "ahmet_web3_awesome"
+    filters:
+      exclude_patterns:
+        - "/wiki/"
+        - "/issues/"
+        - "/pull/"
+        - "/releases/"
+        - "wikipedia.org"
+        - "stackoverflow.com"
+      allow_patterns:
+        - "docs.soliditylang.org"
+        - "docs.ethers.io"
+        - "hardhat.org"
+      skip_line_patterns: []
+    rules:
+      require_https_links: true
+      skip_headers: true
+      skip_empty_lines: true
+      be_inclusive: true  # More permissive for Web3 projects
+
+  - name: "Kyro Labs Awesome Agents"
+    owner: "kyrolabs"
+    repo: "awesome-agents"
+    output_filename: "kyrolabs_awesome_agents"
+    filters:
+      exclude_patterns:
+        - "/wiki/"
+        - "/docs/"
+        - "/doc/"
+        - "wikipedia.org"
+        - "stackoverflow.com"
+        - "/issues/"
+        - "/pull/"
+        - "/releases/"
+        - "medium.com"
+        - "blog."
+        - "news."
+      allow_patterns: []
+      skip_line_patterns: []
+    rules:
+      require_https_links: true
+      skip_headers: true
+      skip_empty_lines: true
+
+  - name: "Jenqyang Awesome AI Agents"
+    owner: "Jenqyang"
+    repo: "Awesome-AI-Agents"
+    output_filename: "jenqyang_awesome_ai_agents"
+    filters:
+      exclude_patterns:
+        - "/wiki/"
+        - "/docs/"
+        - "/doc/"
+        - "wikipedia.org"
+        - "stackoverflow.com"
+        - "/issues/"
+        - "/pull/"
+        - "/releases/"
+        - "medium.com"
+        - "blog."
+        - "news."
+      allow_patterns: []
+      skip_line_patterns: []
+    rules:
+      require_https_links: true
+      skip_headers: true
+      skip_empty_lines: true
+
+  - name: "Shubhamsaboo Awesome LLM Apps"
+    owner: "Shubhamsaboo"
+    repo: "awesome-llm-apps"
+    output_filename: "shubhamsaboo_awesome_llm_apps"
+    filters:
+      exclude_patterns:
+        - "/wiki/"
+        - "/docs/"
+        - "/doc/"
+        - "wikipedia.org"
+        - "stackoverflow.com"
+        - "/issues/"
+        - "/pull/"
+        - "/releases/"
+        - "medium.com"
+        - "blog."
+        - "news."
+      allow_patterns: []
+      skip_line_patterns: []
+    rules:
+      require_https_links: true
+      skip_headers: true
+      skip_empty_lines: true
+
+  - name: "Vince Lam Awesome Agents"
+    owner: "vince-lam"
+    repo: "awesome-agents"
+    output_filename: "vince_lam_awesome_agents"
+    filters:
+      exclude_patterns:
+        - "/wiki/"
+        - "/docs/"
+        - "/doc/"
+        - "wikipedia.org"
+        - "stackoverflow.com"
+        - "/issues/"
+        - "/pull/"
+        - "/releases/"
+        - "medium.com"
+        - "blog."
+        - "news."
+      allow_patterns: []
+      skip_line_patterns: []
+    rules:
+      require_https_links: true
+      skip_headers: true
+      skip_empty_lines: true
+
+  - name: "Steel Dev Awesome Web Agents"
+    owner: "steel-dev"
+    repo: "awesome-web-agents"
+    output_filename: "steel_dev_awesome_web_agents"
+    filters:
+      exclude_patterns:
+        - "/wiki/"
+        - "/docs/"
+        - "/doc/"
+        - "wikipedia.org"
+        - "stackoverflow.com"
+        - "/issues/"
+        - "/pull/"
+        - "/releases/"
+        - "medium.com"
+        - "blog."
+        - "news."
+      allow_patterns: []
+      skip_line_patterns: []
+    rules:
+      require_https_links: true
+      skip_headers: true
+      skip_empty_lines: true
+
+  - name: "Alternbits Awesome AI Agents Directories"
+    owner: "alternbits"
+    repo: "awesome-ai-agents-directories"
+    output_filename: "alternbits_awesome_ai_agents_directories"
+    filters:
+      exclude_patterns:
+        - "/wiki/"
+        - "/docs/"
+        - "/doc/"
+        - "wikipedia.org"
+        - "stackoverflow.com"
+        - "/issues/"
+        - "/pull/"
+        - "/releases/"
+        - "medium.com"
+        - "blog."
+        - "news."
+      allow_patterns: []
+      skip_line_patterns: []
+    rules:
+      require_https_links: true
+      skip_headers: true
+      skip_empty_lines: true
+
+  - name: "Deep Insight Labs Awesome AI Agents"
+    owner: "Deep-Insight-Labs"
+    repo: "awesome-ai-agents"
+    output_filename: "deep_insight_labs_awesome_ai_agents"
+    filters:
+      exclude_patterns:
+        - "/wiki/"
+        - "/docs/"
+        - "/doc/"
+        - "wikipedia.org"
+        - "stackoverflow.com"
+        - "/issues/"
+        - "/pull/"
+        - "/releases/"
+        - "medium.com"
+        - "blog."
+        - "news."
+      allow_patterns: []
+      skip_line_patterns: []
+    rules:
+      require_https_links: true
+      skip_headers: true
+      skip_empty_lines: true
+
+  - name: "Punkpeye Awesome MCP Servers"
+    owner: "punkpeye"
+    repo: "awesome-mcp-servers"
+    output_filename: "punkpeye_awesome_mcp_servers"
+    filters:
+      exclude_patterns:
+        - "/wiki/"
+        - "/docs/"
+        - "/doc/"
+        - "wikipedia.org"
+        - "stackoverflow.com"
+        - "/issues/"
+        - "/pull/"
+        - "/releases/"
+        - "medium.com"
+        - "blog."
+        - "news."
+      allow_patterns: []
+      skip_line_patterns: []
+    rules:
+      require_https_links: true
+      skip_headers: true
+      skip_empty_lines: true
+
+  - name: "Appcypher Awesome MCP Servers"
+    owner: "appcypher"
+    repo: "awesome-mcp-servers"
+    output_filename: "appcypher_awesome_mcp_servers"
+    filters:
+      exclude_patterns:
+        - "/wiki/"
+        - "/docs/"
+        - "/doc/"
+        - "wikipedia.org"
+        - "stackoverflow.com"
+        - "/issues/"
+        - "/pull/"
+        - "/releases/"
+        - "medium.com"
+        - "blog."
+        - "news."
+      allow_patterns: []
+      skip_line_patterns: []
+    rules:
+      require_https_links: true
+      skip_headers: true
+      skip_empty_lines: true
+
+  - name: "Wong2 Awesome MCP Servers"
+    owner: "wong2"
+    repo: "awesome-mcp-servers"
+    output_filename: "wong2_awesome_mcp_servers"
+    filters:
+      exclude_patterns:
+        - "/wiki/"
+        - "/docs/"
+        - "/doc/"
+        - "wikipedia.org"
+        - "stackoverflow.com"
+        - "/issues/"
+        - "/pull/"
+        - "/releases/"
+        - "medium.com"
+        - "blog."
+        - "news."
+      allow_patterns: []
+      skip_line_patterns: []
+    rules:
+      require_https_links: true
+      skip_headers: true
+      skip_empty_lines: true
+
+  - name: "Punkpeye Awesome MCP Clients"
+    owner: "punkpeye"
+    repo: "awesome-mcp-clients"
+    output_filename: "punkpeye_awesome_mcp_clients"
+    filters:
+      exclude_patterns:
+        - "/wiki/"
+        - "/docs/"
+        - "/doc/"
+        - "wikipedia.org"
+        - "stackoverflow.com"
+        - "/issues/"
+        - "/pull/"
+        - "/releases/"
+        - "medium.com"
+        - "blog."
+        - "news."
+      allow_patterns: []
+      skip_line_patterns: []
+    rules:
+      require_https_links: true
+      skip_headers: true
+      skip_empty_lines: true
+
+  - name: "Model Context Protocol Official Servers"
+    owner: "modelcontextprotocol"
+    repo: "servers"
+    output_filename: "modelcontextprotocol_servers"
+    filters:
+      exclude_patterns:
+        - "/wiki/"
+        - "/docs/"
+        - "/doc/"
+        - "wikipedia.org"
+        - "stackoverflow.com"
+        - "/issues/"
+        - "/pull/"
+        - "/releases/"
+        - "medium.com"
+        - "blog."
+        - "news."
+      allow_patterns: []
+      skip_line_patterns: []
+    rules:
+      require_https_links: true
+      skip_headers: true
+      skip_empty_lines: true
+
+  - name: "Pipedream HQ Awesome MCP Servers"
+    owner: "PipedreamHQ"
+    repo: "awesome-mcp-servers"
+    output_filename: "pipedreamhq_awesome_mcp_servers"
+    filters:
+      exclude_patterns:
+        - "/wiki/"
+        - "/docs/"
+        - "/doc/"
+        - "wikipedia.org"
+        - "stackoverflow.com"
+        - "/issues/"
+        - "/pull/"
+        - "/releases/"
+        - "medium.com"
+        - "blog."
+        - "news."
+      allow_patterns: []
+      skip_line_patterns: []
+    rules:
+      require_https_links: true
+      skip_headers: true
+      skip_empty_lines: true
+
+  - name: "MobinX Awesome MCP List"
+    owner: "MobinX"
+    repo: "awesome-mcp-list"
+    output_filename: "mobinx_awesome_mcp_list"
+    filters:
+      exclude_patterns:
+        - "/wiki/"
+        - "/docs/"
+        - "/doc/"
+        - "wikipedia.org"
+        - "stackoverflow.com"
+        - "/issues/"
+        - "/pull/"
+        - "/releases/"
+        - "medium.com"
+        - "blog."
+        - "news."
+      allow_patterns: []
+      skip_line_patterns: []
+    rules:
+      require_https_links: true
+      skip_headers: true
+      skip_empty_lines: true
+
+  # Template for adding new sources easily
+  # - name: "Your Awesome List"
+  #   owner: "username"
+  #   repo: "awesome-something"
+  #   output_filename: "your_awesome_list"
+  #   filters:
+  #     exclude_patterns:
+  #       - "/wiki/"
+  #       - "/docs/"
+  #     allow_patterns: []
+  #     skip_line_patterns: []
+  #   rules:
+  #     require_https_links: true
+  #     skip_headers: true
+  #     skip_empty_lines: true

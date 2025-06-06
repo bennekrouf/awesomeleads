@@ -1,0 +1,31 @@
+# Lead Scraper Configuration
+scraping:
+  # Skip email fetching for projects with first commit before this date
+  # Format: YYYY-MM-DD or YYYY (defaults to January 1st)
+  min_first_commit_date: "2020"
+  
+  # Skip email fetching for repositories created before this date
+  min_repository_created_date: "2020"
+  
+  # Rate limiting between API calls (milliseconds)
+  rate_limit_delay_ms: 100
+  
+  # Timeout for individual API calls (seconds)
+  api_timeout_seconds: 10
+  
+  # Maximum number of projects to process per source (0 = unlimited)
+  max_projects_per_source: 0
+
+logging:
+  # Log level: trace, debug, info, warn, error
+  level: "info"
+  
+  # Show progress every N projects
+  progress_interval: 10
+
+output:
+  # Output directory for JSON files
+  directory: "out"
+  
+  # Pretty print JSON files
+  pretty_json: true
