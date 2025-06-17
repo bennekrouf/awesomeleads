@@ -1,3 +1,4 @@
+// src/main.rs (UPDATED - add the email_export module)
 use models::{CliApp, Result};
 use tracing::{info, warn};
 use tracing_subscriber::EnvFilter;
@@ -5,6 +6,7 @@ use tracing_subscriber::EnvFilter;
 mod cli;
 mod config;
 mod database;
+mod email_export;  // ← Add this new module
 mod models;
 mod scraper_util;
 mod sources;
