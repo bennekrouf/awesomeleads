@@ -44,6 +44,8 @@ pub enum CompanySize {
 #[derive(Debug, Clone, Serialize)]
 pub struct EmailExport {
     pub email: String,
+    pub name: Option<String>, 
+    pub first_name: Option<String>,
     pub status: String,
     pub consent_timestamp: String,
     pub source: String,
@@ -168,6 +170,7 @@ impl CliApp {
             r#"
             SELECT DISTINCT
                 p.email,
+                COALESCE(c.name, p.owner) as name,  -- Use contributor name, fallback to owner
                 p.url,
                 p.description,
                 p.repository_created,
@@ -187,14 +190,15 @@ impl CliApp {
         let rows = stmt.query_map([], |row| {
             Ok(RawEmailData {
                 email: row.get(0)?,
-                url: row.get(1)?,
-                description: row.get::<_, Option<String>>(2)?,
-                repository_created: row.get::<_, Option<String>>(3)?,
-                first_commit_date: row.get::<_, Option<String>>(4)?,
-                total_commits: row.get::<_, Option<i32>>(5)?,
-                owner: row.get::<_, Option<String>>(6)?,
-                repo_name: row.get::<_, Option<String>>(7)?,
-                source_repository: row.get(8)?,
+                name: row.get(1)?,
+                url: row.get(2)?,
+                description: row.get::<_, Option<String>>(3)?,
+                repository_created: row.get::<_, Option<String>>(4)?,
+                first_commit_date: row.get::<_, Option<String>>(5)?,
+                total_commits: row.get::<_, Option<i32>>(6)?,
+                owner: row.get::<_, Option<String>>(7)?,
+                repo_name: row.get::<_, Option<String>>(8)?,
+                source_repository: row.get(9)?,
             })
         })?;
 
@@ -226,6 +230,9 @@ impl CliApp {
         raw: RawEmailData,
         _config: &ExportConfig,
     ) -> Result<EmailExport> {
+        // Extract first name for personalization
+        let (name, first_name) = self.extract_names(&raw);
+        
         let domain = self.extract_domain(&raw.email);
         let domain_category = self.classify_domain(&domain, &raw.description);
         let company_size = self.estimate_company_size(&raw);
@@ -235,6 +242,8 @@ impl CliApp {
 
         Ok(EmailExport {
             email: raw.email.clone(),
+            name,
+            first_name,
             status: "never_subscribed".to_string(),
             consent_timestamp: Utc::now().to_rfc3339(),
             source: format!("github_scraper_{}", raw.source_repository.replace('/', "_")),
@@ -424,6 +433,20 @@ impl CliApp {
             && email.len() < 255
     }
 
+    fn extract_names(&self, raw: &RawEmailData) -> (Option<String>, Option<String>) {
+        let full_name = raw.name.clone().or_else(|| {
+            // Fallback: try to extract name from owner field
+            raw.owner.clone()
+        });
+        
+        let first_name = full_name.as_ref().map(|name| {
+            // Extract first name (everything before first space)
+            name.split_whitespace().next().unwrap_or(name).to_string()
+        });
+        
+        (full_name, first_name)
+    }
+
     async fn export_emails_to_csv(&self, emails: &[EmailExport], filename: &str) -> Result<()> {
         use std::io::Write;
         let mut file = std::fs::File::create(filename)?;
@@ -521,6 +544,7 @@ struct ExportConfig {
 #[derive(Debug)]
 struct RawEmailData {
     email: String,
+    name: Option<String>, 
     url: String,
     description: Option<String>,
     repository_created: Option<String>,
