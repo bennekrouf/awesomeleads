@@ -1,9 +1,8 @@
 // src/cli/run_export_emails.rs (REFACTORED VERSION)
-use crate::{models::CliApp, Result};
-use crate::email_export::{
-    EmailDatabase, EmailProcessor, EmailExportConfigBuilder, EmailExporter
-};
+use crate::email_export::{EmailDatabase, EmailExportConfigBuilder, EmailExporter, EmailProcessor};
+use crate::models::CliApp;
 use dialoguer::{theme::ColorfulTheme, Confirm};
+type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
 impl CliApp {
     pub async fn run_export_emails(&self) -> Result<()> {
@@ -36,7 +35,10 @@ impl CliApp {
         let mut processed_emails = Vec::new();
 
         for raw_email in raw_emails {
-            match processor.process_email_data(raw_email, &export_config).await {
+            match processor
+                .process_email_data(raw_email, &export_config)
+                .await
+            {
                 Ok(processed) => processed_emails.push(processed),
                 Err(e) => {
                     eprintln!("⚠️  Failed to process email: {}", e);
@@ -68,11 +70,11 @@ impl CliApp {
 
         // Show results
         let stats = exporter.generate_stats(&processed_emails);
-        
+
         println!("\n✅ Email export completed!");
         println!("📁 File: {}", filename);
         println!("📊 Total emails: {}", stats.total_emails);
-        
+
         exporter.print_stats(&stats);
 
         Ok(())
@@ -81,12 +83,14 @@ impl CliApp {
     fn show_export_preview(&self, emails: &[crate::email_export::EmailExport]) {
         println!("\n📋 Export Preview:");
         println!("━━━━━━━━━━━━━━━━━━━━━");
-        
+
         for (i, email) in emails.iter().take(5).enumerate() {
-            let name_display = email.name.as_deref()
+            let name_display = email
+                .name
+                .as_deref()
                 .or(email.first_name.as_deref())
                 .unwrap_or("Unknown");
-            
+
             println!(
                 "{}. {} ({}) - {} - {}",
                 i + 1,
@@ -96,7 +100,7 @@ impl CliApp {
                 email.company_size
             );
         }
-        
+
         if emails.len() > 5 {
             println!("   ... and {} more", emails.len() - 5);
         }

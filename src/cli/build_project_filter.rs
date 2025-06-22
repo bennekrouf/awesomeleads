@@ -1,10 +1,7 @@
 use dialoguer::{theme::ColorfulTheme, Input};
 
-use crate::{
-    models::{CliApp, ProjectFilter},
-    Result,
-};
-
+use crate::models::{CliApp, ProjectFilter};
+type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 impl CliApp {
     pub async fn build_project_filter(&self, selection: usize) -> Result<ProjectFilter> {
         let filter = match selection {

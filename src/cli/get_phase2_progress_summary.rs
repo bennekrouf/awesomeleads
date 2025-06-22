@@ -1,6 +1,6 @@
 use crate::models::{CliApp, Phase2Progress};
 
-pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
+type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
 impl CliApp {
 pub async fn get_phase2_progress_summary(&self) -> Result<Phase2Progress> {

@@ -1,6 +1,9 @@
-use crate::{database::update_source_last_scraped, models::CliApp, Result};
+use crate::{database::update_source_last_scraped, models::CliApp};
 
 use tracing::{error, warn};
+
+type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
+
 impl CliApp {
     pub async fn run_phase1(&self) -> Result<()> {
         println!("\n🔍 Starting Phase 1: Scraping awesome lists for project URLs...");
@@ -98,3 +101,4 @@ impl CliApp {
         Ok(())
     }
 }
+

@@ -1,7 +1,8 @@
 use dialoguer::{theme::ColorfulTheme, Input};
 
-use crate::{models::CliApp, Result};
+use crate::models::CliApp;
 
+type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 impl CliApp {
     pub async fn run_analyze_single_repo(&self) -> Result<()> {
         println!("\n🧪 Single GitHub Repository Analysis");

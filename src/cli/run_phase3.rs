@@ -1,6 +1,7 @@
-use crate::{models::CliApp, Result};
+use crate::models::CliApp;
 use tracing::error;
 
+type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 impl CliApp {
     pub async fn run_phase3(&self) -> Result<()> {
         println!("\n📤 Starting Phase 3: Exporting results to JSON files...");

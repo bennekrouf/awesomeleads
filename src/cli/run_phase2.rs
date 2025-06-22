@@ -1,6 +1,9 @@
-use crate::{database::get_projects_needing_github_data, models::CliApp, Result};
+use crate::{database::get_projects_needing_github_data, models::CliApp};
 
 use tracing::warn;
+
+type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
+
 impl CliApp {
     pub async fn run_phase2(&self) -> Result<()> {
         println!("\n📡 Starting Phase 2: Fetching GitHub data for incomplete projects...");
@@ -57,3 +60,4 @@ impl CliApp {
         Ok(())
     }
 }
+

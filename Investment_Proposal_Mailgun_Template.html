@@ -1,0 +1,112 @@
+<script type="text/javascript">
+  var gk_isXlsx = false;
+  var gk_xlsxFileLookup = {};
+  var gk_fileData = {};
+  function filledCell(cell) {
+    return cell !== '' && cell != null;
+  }
+  function loadFileData(filename) {
+    if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+      try {
+        var workbook = XLSX.read(gk_fileData[filename], {type: 'base64'});
+        var firstSheetName = workbook.SheetNames[0];
+        var worksheet = workbook.Sheets[firstSheetName];
+
+        // Convert sheet to JSON to filter blank rows
+        var jsonData = XLSX.utils.sheet_to_json(worksheet, {header: 1, blankrows: false, defval: ''});
+        // Filter out blank rows (rows where all cells are empty, null, or undefined)
+        var filteredData = jsonData.filter(row => row.some(filledCell));
+
+        // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+        var headerRowIndex = filteredData.findIndex((row, index) =>
+          row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+        );
+        // Fallback
+        if (headerRowIndex === -1 || headerRowIndex > 25) {
+          headerRowIndex = 0;
+        }
+
+        // Convert filtered JSON back to CSV
+        var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+        csv = XLSX.utils.sheet_to_csv(csv, {header: 1});
+        return csv;
+      } catch (e) {
+        console.error(e);
+        return "";
+      }
+    }
+    return gk_fileData[filename] || "";
+  }
+</script>
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Exploring Your Projects with FabInvest</title>
+</head>
+
+<body
+  style="margin: 0; padding: 0; font-family: Arial, Helvetica, sans-serif; color: #333333; background-color: #f4f4f4;">
+  <table width="100%" cellpadding="0" cellspacing="0"
+    style="max-width: 600px; margin: 20px auto; background-color: #ffffff; border: 1px solid #e0e0e0;">
+    <tr>
+      <td style="padding: 20px; text-align: center; background-color: #004aad; color: #ffffff;">
+        <h1 style="margin: 0; font-size: 24px;">FabInvest</h1>
+        <p style="margin: 5px 0 0; font-size: 14px;">Private Equity for High-Growth Tech Ventures</p>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding: 20px;">
+        <p style="font-size: 16px; line-height: 1.5;">Dear {{recipient_name}},</p>
+        <p style="font-size: 16px; line-height: 1.5;">
+          I’m Gilles from <a href="https://fabinvest.com" style="color: #004aad; text-decoration: none;">FabInvest</a>,
+          a private equity firm focused on transformative tech ventures. We noticed your contributions to
+          <strong>{{repo_name}}</strong> on GitHub and are impressed by {{specific_aspect}}. Your expertise caught our
+          attention, and we’d love to explore the projects you’re working on.
+        </p>
+        <p style="font-size: 16px; line-height: 1.5;">
+          At FabInvest, we provide venture capital and growth capital to innovative private companies, pairing funding
+          with strategic support to drive long-term success. Are you working on any projects—open-source or
+          otherwise—that could benefit from investment? Could you share a quick update on your current work or
+          fundraising plans?
+        </p>
+        <p style="font-size: 16px; line-height: 1.5;">
+          Let’s connect for a 15-minute call to discuss potential collaboration. Book a time here: <a
+            href="{{calendar_link}}" style="color: #004aad; text-decoration: none;">Schedule a Call</a>, or reply with
+          your availability. I’ve attached a one-pager about FabInvest’s private equity approach for more details.
+        </p>
+        <p style="font-size: 16px; line-height: 1.5;">
+          Thank you for your impactful work, and I’m excited about the possibility of partnering!
+        </p>
+        <p style="font-size: 16px; line-height: 1.5;">
+          Best regards,<br>
+          Gilles Samyn<br>
+          FabInvest<br>
+          <a href="https://fabinvest.com" style="color: #004aad; text-decoration: none;">fabinvest.com</a><br>
+          {{contact_email}} | {{contact_phone}}
+        </p>
+        <p style="font-size: 14px; line-height: 1.5; font-style: italic;">
+          P.S. If a call isn’t convenient, just reply with a brief project update to start the conversation!
+        </p>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding: 20px; text-align: center; background-color: #f4f4f4; font-size: 12px; color: #666666;">
+        <p style="margin: 0;">
+          FabInvest,
+          Fabric Invest Limited
+          73 Cornhill, London, United Kingdom, EC3V 3QQ<br>
+          You are receiving this email because of your contributions to {{repo_name}}. Not interested? <a
+            href="%unsubscribe%" style="color: #004aad; text-decoration: none;">Unsubscribe</a>
+        </p>
+        <p style="margin: 10px 0 0;">
+          <a href="[Your Privacy Policy URL]" style="color: #004aad; text-decoration: none;">Privacy Policy</a>
+        </p>
+      </td>
+    </tr>
+  </table>
+</body>
+
+</html>

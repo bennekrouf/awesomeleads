@@ -1,22 +1,25 @@
-// src/main.rs (UPDATED - add the email_export module)
-use models::{CliApp, Result};
-use tracing::{info, warn};
+// src/main.rs (UPDATED - Enhanced logging for debugging)
+use tracing::{debug, error, info, warn};
 use tracing_subscriber::EnvFilter;
 
 mod cli;
 mod config;
 mod database;
-mod email_export;  // ← Add this new module
+mod email_export;
 mod models;
 mod scraper_util;
 mod sources;
 
 use config::{load_config, Config};
 use database::create_db_pool;
+use models::CliApp;
 use tokio::signal;
 
+// Use the correct Result type
+type AppResult<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
+
 #[tokio::main]
-async fn main() -> Result<()> {
+async fn main() -> AppResult<()> {
     dotenv::dotenv().ok();
 
     // Load configuration
@@ -28,34 +31,55 @@ async fn main() -> Result<()> {
         }
     };
 
-    // Setup logging
-    std::env::set_var("RUST_LOG", "lead_scraper=info,hyper=warn,octocrab=warn");
+    // Setup enhanced logging with DEBUG level
+    std::env::set_var("RUST_LOG", "lead_scraper=debug,hyper=warn,octocrab=warn");
     tracing_subscriber::fmt()
         .with_env_filter(
-            EnvFilter::from_default_env().add_directive("lead_scraper=info".parse().unwrap()),
+            EnvFilter::from_default_env().add_directive("lead_scraper=debug".parse().unwrap()),
         )
-        .with_max_level(tracing::Level::INFO)
+        .with_max_level(tracing::Level::DEBUG) // Changed to DEBUG
+        .with_target(true) // Show which module the log comes from
+        .with_line_number(true) // Show line numbers
         .init();
 
+    debug!("🚀 Application starting with debug logging enabled");
+    debug!(
+        "📁 Working directory: {:?}",
+        std::env::current_dir().unwrap_or_default()
+    );
+
     // Create output directory
-    tokio::fs::create_dir_all(&config.output.directory).await?;
+    debug!("📁 Creating output directory: {}", config.output.directory);
+    tokio::fs::create_dir_all(&config.output.directory)
+        .await
+        .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> { Box::new(e) })?;
 
     // Initialize database
     info!("Initializing database...");
+    debug!("🗄️ About to create database pool...");
+
     let db_pool = create_db_pool("data/projects.db").await?;
+    debug!("✅ Database pool created successfully");
 
     // Initialize and run CLI app
+    debug!("🏗️ About to create CliApp...");
     let app = CliApp::new(config, db_pool).await?;
+    debug!("✅ CliApp created successfully");
+
+    debug!("🎯 About to run CliApp...");
 
     // Add graceful shutdown
     tokio::select! {
         result = app.run() => {
             result?;
+            debug!("✅ Application completed successfully");
         }
         _ = signal::ctrl_c() => {
             info!("Received Ctrl+C, shutting down gracefully...");
         }
     }
 
+    debug!("👋 Application shutdown complete");
     Ok(())
 }
+

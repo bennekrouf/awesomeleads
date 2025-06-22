@@ -1,4 +1,6 @@
-use crate::{models::CliApp, Result};
+use crate::models::CliApp;
+
+type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
 impl CliApp {
     pub async fn show_phase2_progress(&self) -> Result<()> {

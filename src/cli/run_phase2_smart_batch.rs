@@ -1,7 +1,8 @@
 use dialoguer::{theme::ColorfulTheme, Confirm, Input, Select};
 
-use crate::{models::CliApp, Result};
+use crate::models::CliApp;
 
+type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 impl CliApp {
     pub async fn run_phase2_smart_batch(&self) -> Result<()> {
         println!("\n🎯 Smart Phase 2: High-Value Project Batch Processing");

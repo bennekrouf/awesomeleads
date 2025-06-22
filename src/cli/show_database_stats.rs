@@ -1,10 +1,43 @@
-use crate::{database::get_database_stats, models::CliApp, Result};
+use crate::{database::get_database_stats, models::CliApp};
+use tracing::{debug, error, info};
+
+type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
+
 impl CliApp {
     pub async fn show_database_stats(&self) -> Result<()> {
+        debug!("📊 show_database_stats() - Starting...");
+
         println!("\n📊 Database Statistics");
         println!("━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
-        let stats = get_database_stats(&self.db_pool).await?;
+        debug!("🔍 About to call get_database_stats...");
+        let stats = match get_database_stats(&self.db_pool).await {
+            Ok(stats) => {
+                debug!("✅ get_database_stats completed successfully");
+                stats
+            }
+            Err(e) => {
+                error!("💥 get_database_stats failed: {}", e);
+                error!("🔍 Error type: {:?}", e);
+
+                // Log more details about the error
+                if let Some(rusqlite_err) = e.downcast_ref::<rusqlite::Error>() {
+                    error!("🔥 Specific rusqlite error: {:?}", rusqlite_err);
+                    match rusqlite_err {
+                        rusqlite::Error::ExecuteReturnedResults => {
+                            error!("💥 EXECUTE_RETURNED_RESULTS detected!");
+                            error!("🔧 This means execute() was called on a SELECT statement");
+                            error!("🔧 Check all database queries for incorrect method usage");
+                        }
+                        _ => {}
+                    }
+                }
+
+                return Err(e);
+            }
+        };
+
+        debug!("📝 Displaying statistics...");
 
         println!("🐙 GitHub projects: {}", stats.total_github_projects);
         println!(
@@ -24,7 +57,7 @@ impl CliApp {
             stats.projects_with_github_data
         );
 
-        // NEW: Enhanced stats
+        // Enhanced stats
         println!(
             "🏆 Projects with contributor data: {}",
             stats.projects_with_contributor_data
@@ -76,6 +109,8 @@ impl CliApp {
             println!("  📈 Commit statistics: {}%", commit_stats_percentage);
         }
 
+        debug!("✅ show_database_stats() completed successfully");
         Ok(())
     }
 }
+
