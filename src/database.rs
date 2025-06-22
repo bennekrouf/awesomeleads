@@ -70,35 +70,40 @@ impl Manager for SqliteManager {
         
         debug!("⚙️ Setting PRAGMA options...");
         
-        if let Err(e) = conn.execute("PRAGMA journal_mode=WAL", []) {
-            log_rusqlite_error("PRAGMA journal_mode", &e);
-            return Err(e);
-        }
-        debug!("✅ PRAGMA journal_mode=WAL");
+        // Helper function to execute PRAGMA statements safely
+        let exec_pragma = |conn: &Connection, pragma: &str, name: &str| -> Result<(), rusqlite::Error> {
+            debug!("🔧 Executing PRAGMA: {}", pragma);
+            match conn.execute(pragma, []) {
+                Ok(_) => {
+                    debug!("✅ {} (via execute)", name);
+                    Ok(())
+                }
+                Err(rusqlite::Error::ExecuteReturnedResults) => {
+                    // Some PRAGMA statements return results, try query_row
+                    debug!("🔄 {} returned results, trying query_row", name);
+                    match conn.query_row(pragma, [], |_| Ok(())) {
+                        Ok(_) => {
+                            debug!("✅ {} (via query_row)", name);
+                            Ok(())
+                        }
+                        Err(e) => {
+                            debug!("❌ {} failed with query_row: {}", name, e);
+                            Err(e)
+                        }
+                    }
+                }
+                Err(e) => {
+                    debug!("❌ {} failed with execute: {}", name, e);
+                    Err(e)
+                }
+            }
+        };
         
-        if let Err(e) = conn.execute("PRAGMA synchronous=NORMAL", []) {
-            log_rusqlite_error("PRAGMA synchronous", &e);
-            return Err(e);
-        }
-        debug!("✅ PRAGMA synchronous=NORMAL");
-        
-        if let Err(e) = conn.execute("PRAGMA cache_size=1000000", []) {
-            log_rusqlite_error("PRAGMA cache_size", &e);
-            return Err(e);
-        }
-        debug!("✅ PRAGMA cache_size=1000000");
-        
-        if let Err(e) = conn.execute("PRAGMA temp_store=memory", []) {
-            log_rusqlite_error("PRAGMA temp_store", &e);
-            return Err(e);
-        }
-        debug!("✅ PRAGMA temp_store=memory");
-        
-        if let Err(e) = conn.execute("PRAGMA mmap_size=268435456", []) {
-            log_rusqlite_error("PRAGMA mmap_size", &e);
-            return Err(e);
-        }
-        debug!("✅ PRAGMA mmap_size=268435456");
+        exec_pragma(&conn, "PRAGMA journal_mode=WAL", "PRAGMA journal_mode")?;
+        exec_pragma(&conn, "PRAGMA synchronous=NORMAL", "PRAGMA synchronous")?;
+        exec_pragma(&conn, "PRAGMA cache_size=1000000", "PRAGMA cache_size")?;
+        exec_pragma(&conn, "PRAGMA temp_store=memory", "PRAGMA temp_store")?;
+        exec_pragma(&conn, "PRAGMA mmap_size=268435456", "PRAGMA mmap_size")?;
         
         debug!("🏗️ Initializing database schema...");
         if let Err(e) = init_database(&conn) {
