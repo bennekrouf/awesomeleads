@@ -2,19 +2,17 @@ use rusqlite::{Connection, Result as SqliteResult, params};
 use mobc::{Manager, Pool};
 use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
-use tracing::{info, warn, error, debug};
+use tracing::{info, error, debug};
 use std::path::Path;
 use crate::models::Phase2Progress;
 
 // Add this debug helper
 fn log_rusqlite_error(context: &str, err: &rusqlite::Error) {
     error!("🔥 SQLite Error in {}: {:?}", context, err);
-    match err {
-        rusqlite::Error::ExecuteReturnedResults => {
+
+    if let rusqlite::Error::ExecuteReturnedResults = err {
             error!("💥 EXECUTE_RETURNED_RESULTS: This means execute() was called on a SELECT statement!");
             error!("🔧 Solution: Use query_row() or query_map() for SELECT statements");
-        }
-        _ => {}
     }
 }
 
@@ -798,7 +796,7 @@ pub async fn get_project_by_url(
          FROM projects WHERE url = ?"
     )?;
     
-    let project_iter = stmt.query_map([url], |row| {
+    let mut project_iter = stmt.query_map([url], |row| {
         let get_optional_string = |idx: usize| -> Option<String> {
             match row.get::<_, Option<String>>(idx) {
                 Ok(Some(s)) if !s.is_empty() => Some(s),
@@ -840,11 +838,11 @@ pub async fn get_project_by_url(
         })
     })?;
     
-    for project in project_iter {
-        let project = project?;
-        debug!("✅ Found project: {}", project.url);
-        return Ok(Some(project));
-    }
+    if let Some(project) = project_iter.next() {
+    let project = project?;
+    debug!("✅ Found project: {}", project.url);
+    return Ok(Some(project));
+}
     
     debug!("❌ Project not found: {}", url);
     Ok(None)

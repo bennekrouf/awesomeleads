@@ -1,5 +1,5 @@
 // src/main.rs (UPDATED - Enhanced logging for debugging)
-use tracing::{debug, error, info, warn};
+use tracing::{debug, info, warn};
 use tracing_subscriber::EnvFilter;
 
 mod cli;

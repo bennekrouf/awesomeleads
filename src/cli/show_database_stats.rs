@@ -1,5 +1,5 @@
 use crate::{database::get_database_stats, models::CliApp};
-use tracing::{debug, error, info};
+use tracing::{debug, error};
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
@@ -23,13 +23,10 @@ impl CliApp {
                 // Log more details about the error
                 if let Some(rusqlite_err) = e.downcast_ref::<rusqlite::Error>() {
                     error!("🔥 Specific rusqlite error: {:?}", rusqlite_err);
-                    match rusqlite_err {
-                        rusqlite::Error::ExecuteReturnedResults => {
-                            error!("💥 EXECUTE_RETURNED_RESULTS detected!");
-                            error!("🔧 This means execute() was called on a SELECT statement");
-                            error!("🔧 Check all database queries for incorrect method usage");
-                        }
-                        _ => {}
+                    if let rusqlite::Error::ExecuteReturnedResults = rusqlite_err {
+                        error!("💥 EXECUTE_RETURNED_RESULTS detected!");
+                        error!("🔧 This means execute() was called on a SELECT statement");
+                        error!("🔧 Check all database queries for incorrect method usage");
                     }
                 }
 
