@@ -1,4 +1,4 @@
-// src/main.rs (UPDATED - Enhanced logging for debugging)
+// 4. UPDATE: src/main.rs - Add email_sender module
 use tracing::{debug, info, warn};
 use tracing_subscriber::EnvFilter;
 
@@ -6,6 +6,7 @@ mod cli;
 mod config;
 mod database;
 mod email_export;
+mod email_sender; // NEW: Add this line
 mod models;
 mod scraper_util;
 mod sources;
@@ -37,9 +38,9 @@ async fn main() -> AppResult<()> {
         .with_env_filter(
             EnvFilter::from_default_env().add_directive("lead_scraper=debug".parse().unwrap()),
         )
-        .with_max_level(tracing::Level::DEBUG) // Changed to DEBUG
-        .with_target(true) // Show which module the log comes from
-        .with_line_number(true) // Show line numbers
+        .with_max_level(tracing::Level::DEBUG)
+        .with_target(true)
+        .with_line_number(true)
         .init();
 
     debug!("🚀 Application starting with debug logging enabled");
@@ -82,4 +83,3 @@ async fn main() -> AppResult<()> {
     debug!("👋 Application shutdown complete");
     Ok(())
 }
-

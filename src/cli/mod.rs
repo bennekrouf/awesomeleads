@@ -1,3 +1,4 @@
+// src/cli/mod.rs - Updated to include email sending
 pub mod build_project_filter;
 pub mod cli;
 pub mod display_analysis_results;
@@ -11,5 +12,7 @@ pub mod run_phase1;
 pub mod run_phase2;
 pub mod run_phase2_smart_batch;
 pub mod run_phase3;
+pub mod run_send_emails; // NEW: Add this line
 pub mod show_database_stats;
 pub mod show_phase2_progress;
+

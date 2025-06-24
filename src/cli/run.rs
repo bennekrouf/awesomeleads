@@ -21,6 +21,7 @@ impl CliApp {
                 MenuAction::Phase2FetchGithubData,
                 MenuAction::Phase3ExportResults,
                 MenuAction::AnalyzeSingleRepo,
+                MenuAction::SendEmailCampaign,
                 MenuAction::ShowStats,
                 MenuAction::ShowPhase2Progress, // NEW: Progress trackin
                 MenuAction::ExportEmails,
@@ -63,6 +64,12 @@ impl CliApp {
                 MenuAction::ShowStats => {
                     if let Err(e) = self.show_database_stats().await {
                         error!("Failed to show stats: {}", e);
+                    }
+                }
+                MenuAction::SendEmailCampaign => {
+                    // NEW: Add this block
+                    if let Err(e) = self.send_emails_via_mailgun().await {
+                        error!("Email campaign failed: {}", e);
                     }
                 }
                 MenuAction::ShowPhase2Progress => {

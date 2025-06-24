@@ -55,7 +55,7 @@ pub struct EmailExport {
     pub commit_count: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct RawEmailData {
     pub email: String,
     pub name: Option<String>,

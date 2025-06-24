@@ -1,6 +1,6 @@
-// src/email_export/database.rs
-use crate::database::DbPool;
+// src/email_export/database.rs - Fixed SQL queries
 use super::types::{ExportConfig, RawEmailData};
+use crate::database::DbPool;
 use std::collections::HashSet;
 
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
@@ -16,17 +16,14 @@ impl EmailDatabase {
 
     pub async fn has_contributors_data(&self) -> Result<bool> {
         let conn = self.db_pool.get().await?;
-        let count: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM contributors", 
-            [], 
-            |row| row.get(0)
-        )?;
+        let count: i64 =
+            conn.query_row("SELECT COUNT(*) FROM contributors", [], |row| row.get(0))?;
         Ok(count > 0)
     }
 
     pub async fn extract_raw_emails(&self, config: &ExportConfig) -> Result<Vec<RawEmailData>> {
         let conn = self.db_pool.get().await?;
-        
+
         let sql = if self.has_contributors_data().await? {
             self.build_sql_with_contributors(config)
         } else {
@@ -87,7 +84,12 @@ impl EmailDatabase {
             {}
             ORDER BY p.total_commits DESC NULLS LAST, p.repository_created DESC NULLS LAST
             "#,
-            config.sql_filter
+            // Fix: Replace "WHERE (email" with "WHERE (p.email" to specify the table
+            config
+                .sql_filter
+                .replace("WHERE (email", "WHERE (p.email")
+                .replace("AND email", "AND p.email")
+                .replace("OR email", "OR p.email")
         )
     }
 
@@ -107,7 +109,12 @@ impl EmailDatabase {
             {}
             ORDER BY p.total_commits DESC NULLS LAST, p.repository_created DESC NULLS LAST
             "#,
-            config.sql_filter
+            // Fix: Replace "WHERE (email" with "WHERE (p.email" to specify the table
+            config
+                .sql_filter
+                .replace("WHERE (email", "WHERE (p.email")
+                .replace("AND email", "AND p.email")
+                .replace("OR email", "OR p.email")
         )
     }
 
@@ -119,3 +126,4 @@ impl EmailDatabase {
             && email.len() < 255
     }
 }
+
