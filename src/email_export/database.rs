@@ -126,4 +126,3 @@ impl EmailDatabase {
             && email.len() < 255
     }
 }
-

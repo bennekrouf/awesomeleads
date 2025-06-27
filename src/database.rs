@@ -163,6 +163,9 @@ fn init_database(conn: &Connection) -> SqliteResult<()> {
         return Err(e);
     }
     
+    create_email_tracking_table(conn)?;
+    create_email_tracking_indexes(conn)?;
+
     debug!("✅ init_database() completed successfully");
     Ok(())
 }
@@ -1107,3 +1110,44 @@ pub async fn get_non_github_project_by_url(
     debug!("❌ Non-GitHub project not found: {}", url);
     Ok(None)
 }
+
+
+fn create_email_tracking_table(conn: &Connection) -> SqliteResult<()> {
+    debug!("📧 Creating email_tracking table...");
+    conn.execute(
+        r#"
+        CREATE TABLE IF NOT EXISTS email_tracking (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT NOT NULL,
+            template_name TEXT NOT NULL,
+            sent_at TEXT NOT NULL,
+            campaign_type TEXT,
+            mailgun_id TEXT,
+            status TEXT DEFAULT 'sent',
+            UNIQUE(email, template_name)
+        )
+        "#,
+        [],
+    )?;
+    debug!("✅ Email tracking table created");
+    Ok(())
+}
+
+// Add index for fast lookups
+fn create_email_tracking_indexes(conn: &Connection) -> SqliteResult<()> {
+    let indexes = [
+        "CREATE INDEX IF NOT EXISTS idx_email_tracking_email ON email_tracking(email)",
+        "CREATE INDEX IF NOT EXISTS idx_email_tracking_template ON email_tracking(template_name)",
+        "CREATE INDEX IF NOT EXISTS idx_email_tracking_sent_at ON email_tracking(sent_at DESC)",
+    ];
+
+    for index_sql in indexes.iter() {
+        conn.execute(index_sql, [])?;
+    }
+    Ok(())
+}
+
+// Update your init_database function to include this table
+// Add these calls in init_database():
+// create_email_tracking_table(conn)?;
+// create_email_tracking_indexes(conn)?;

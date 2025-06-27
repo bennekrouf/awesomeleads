@@ -1,5 +1,8 @@
-// src/email_sender/mod.rs
+// src/email_sender/mod.rs - COMPLETE REPLACEMENT
+use crate::database::DbPool;
+use chrono::Utc;
 use reqwest::Client;
+use rusqlite::params;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::collections::HashMap;
@@ -34,6 +37,36 @@ pub struct MailgunResponse {
     pub message: String,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum EmailTemplate {
+    InvestmentProposal,
+    FollowUp,
+}
+
+impl EmailTemplate {
+    pub fn mailgun_name(&self) -> &'static str {
+        match self {
+            EmailTemplate::InvestmentProposal => "first message", // Your current template
+            EmailTemplate::FollowUp => "follow-up message",
+        }
+    }
+
+    pub fn db_name(&self) -> &'static str {
+        match self {
+            EmailTemplate::InvestmentProposal => "investment_proposal",
+            EmailTemplate::FollowUp => "follow_up",
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct EmailStatus {
+    pub can_send_first: bool,
+    pub can_send_followup: bool,
+    pub last_sent: Option<String>,
+    pub templates_sent: Vec<String>,
+}
+
 pub struct MailgunSender {
     pub config: MailgunConfig,
     client: Client,
@@ -46,6 +79,165 @@ impl MailgunSender {
         Self { config, client }
     }
 
+    // Check if we can send to this email
+    pub async fn check_email_status(
+        &self,
+        db_pool: &DbPool,
+        email: &str,
+    ) -> Result<EmailStatus, Box<dyn std::error::Error + Send + Sync>> {
+        let conn = db_pool.get().await?;
+
+        let mut stmt = conn.prepare(
+            "SELECT template_name, sent_at FROM email_tracking WHERE email = ? ORDER BY sent_at DESC"
+        )?;
+
+        let rows = stmt.query_map([email], |row| {
+            Ok((
+                row.get::<_, String>(0)?, // template_name
+                row.get::<_, String>(1)?, // sent_at
+            ))
+        })?;
+
+        let mut templates_sent = Vec::new();
+        let mut last_sent = None;
+
+        for row in rows {
+            let (template, sent_at) = row?;
+            templates_sent.push(template);
+            if last_sent.is_none() {
+                last_sent = Some(sent_at);
+            }
+        }
+
+        let can_send_first = !templates_sent.contains(&"investment_proposal".to_string());
+        let can_send_followup = templates_sent.contains(&"investment_proposal".to_string())
+            && !templates_sent.contains(&"follow_up".to_string());
+
+        Ok(EmailStatus {
+            can_send_first,
+            can_send_followup,
+            last_sent,
+            templates_sent,
+        })
+    }
+
+    // Enhanced send method with tracking
+    pub async fn send_email_with_tracking(
+        &self,
+        db_pool: &DbPool,
+        recipient: &EmailRecipient,
+        template: EmailTemplate,
+        campaign_type: &str,
+    ) -> Result<MailgunResponse, Box<dyn std::error::Error + Send + Sync>> {
+        // Check if we've already sent this template
+        let status = self.check_email_status(db_pool, &recipient.email).await?;
+
+        match template {
+            EmailTemplate::InvestmentProposal if !status.can_send_first => {
+                return Err("Already sent investment proposal to this email".into());
+            }
+            EmailTemplate::FollowUp if !status.can_send_followup => {
+                return Err(
+                    "Cannot send follow-up: no investment proposal sent or follow-up already sent"
+                        .into(),
+                );
+            }
+            _ => {}
+        }
+
+        // Generate subject based on template
+        let subject = match template {
+            EmailTemplate::InvestmentProposal => {
+                format!(
+                    "Exploring Your {} Project with FabInvest",
+                    recipient.repo_name
+                )
+            }
+            EmailTemplate::FollowUp => {
+                format!("Following Up on {} - FabInvest", recipient.repo_name)
+            }
+        };
+
+        // Update config to use the correct template
+        let mut config = self.config.clone();
+        config.template_name = template.mailgun_name().to_string();
+        let sender_with_template = MailgunSender::new(config);
+
+        // Send the email
+        let response = sender_with_template.send_email(recipient, &subject).await?;
+
+        // Track the sent email
+        self.track_sent_email(
+            db_pool,
+            &recipient.email,
+            template.db_name(),
+            campaign_type,
+            &response.id,
+        )
+        .await?;
+
+        Ok(response)
+    }
+
+    // Track sent email in database
+    async fn track_sent_email(
+        &self,
+        db_pool: &DbPool,
+        email: &str,
+        template_name: &str,
+        campaign_type: &str,
+        mailgun_id: &str,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let conn = db_pool.get().await?;
+        let now = Utc::now().to_rfc3339();
+
+        conn.execute(
+            r#"
+            INSERT INTO email_tracking (email, template_name, sent_at, campaign_type, mailgun_id)
+            VALUES (?1, ?2, ?3, ?4, ?5)
+            ON CONFLICT (email, template_name) DO UPDATE SET
+                sent_at = excluded.sent_at,
+                campaign_type = excluded.campaign_type,
+                mailgun_id = excluded.mailgun_id
+            "#,
+            params![email, template_name, now, campaign_type, mailgun_id],
+        )?;
+
+        Ok(())
+    }
+
+    // Get candidates for follow-up emails
+    pub async fn get_followup_candidates(
+        &self,
+        db_pool: &DbPool,
+        days_since_first: i64,
+    ) -> Result<Vec<String>, Box<dyn std::error::Error + Send + Sync>> {
+        let conn = db_pool.get().await?;
+        let cutoff_date = (Utc::now() - chrono::Duration::days(days_since_first)).to_rfc3339();
+
+        let mut stmt = conn.prepare(
+            r#"
+            SELECT DISTINCT email FROM email_tracking 
+            WHERE template_name = 'investment_proposal' 
+            AND sent_at <= ?1
+            AND email NOT IN (
+                SELECT email FROM email_tracking WHERE template_name = 'follow_up'
+            )
+            ORDER BY sent_at ASC
+            "#,
+        )?;
+
+        let rows = stmt.query_map([cutoff_date], |row| Ok(row.get::<_, String>(0)?))?;
+
+        let mut emails = Vec::new();
+        for row in rows {
+            emails.push(row?);
+        }
+
+        Ok(emails)
+    }
+
+    // Original send_email method (keep for compatibility)
     pub async fn send_email(
         &self,
         recipient: &EmailRecipient,
@@ -115,6 +307,7 @@ impl MailgunSender {
         }
     }
 
+    // Keep other existing methods...
     pub async fn send_batch(
         &self,
         recipients: &[EmailRecipient],
@@ -205,7 +398,7 @@ impl MailgunConfig {
     }
 }
 
-// Helper functions for email processing
+// Helper functions for email processing (keep existing ones)
 pub fn extract_repo_name_from_url(url: &str) -> String {
     if let Some(captures) = regex::Regex::new(r"github\.com/([^/]+/[^/?#]+)")
         .unwrap()
@@ -292,3 +485,4 @@ pub fn generate_specific_aspect(commits: Option<i32>, description: &Option<Strin
         "your technical expertise and innovative approach to development".to_string()
     }
 }
+

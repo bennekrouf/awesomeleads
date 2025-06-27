@@ -1,197 +1,284 @@
-// src/cli/run_send_emails.rs
+// src/cli/run_send_emails.rs - COMPLETE REPLACEMENT
 use crate::email_export::{EmailDatabase, EmailExportConfigBuilder, EmailProcessor};
 use crate::email_sender::{
-    extract_repo_name_from_url, generate_specific_aspect, EmailRecipient, MailgunConfig,
-    MailgunSender,
+    extract_repo_name_from_url, generate_specific_aspect, EmailRecipient, EmailTemplate,
+    MailgunConfig, MailgunSender,
 };
 use crate::models::CliApp;
 use dialoguer::{theme::ColorfulTheme, Confirm, Input, Select};
-use tracing::{debug, error, info};
+use tracing::debug;
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
+// use dialoguer::{theme::ColorfulTheme, Confirm, Input, Select};
 
 impl CliApp {
     pub async fn send_emails_via_mailgun(&self) -> Result<()> {
-        println!("\n📧 Mailgun Email Campaign System");
+        println!("\n📧 Smart Email Campaign System");
         println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
-        // Test Mailgun connection first
-        info!("Testing Mailgun connection...");
-        let mailgun_config = match MailgunConfig::from_env() {
-            Ok(config) => {
-                debug!(
-                    "Mailgun config loaded: domain={}, template={}",
-                    config.domain, config.template_name
-                );
-                config
-            }
-            Err(e) => {
-                error!("Failed to load Mailgun configuration: {}", e);
-                println!("❌ Mailgun configuration error: {}", e);
-                println!("💡 Make sure your .env file contains:");
-                println!("   MAILGUN_API_KEY=your_api_key");
-                println!("   MAILGUN_DOMAIN=t.fabinvest.com");
-                println!("   MAILGUN_TEMPLATE=first message");
-                return Err(e);
-            }
-        };
+        let mailgun_config = MailgunConfig::from_env().map_err(|e| {
+            println!("❌ Mailgun configuration error: {}", e);
+            e
+        })?;
 
         let sender = MailgunSender::new(mailgun_config);
 
-        // Test connection
-        match sender.test_connection().await {
-            Ok(()) => {
-                println!("✅ Mailgun connection successful");
-            }
-            Err(e) => {
-                error!("Mailgun connection test failed: {}", e);
-                println!("❌ Failed to connect to Mailgun: {}", e);
-                println!("💡 Check your API key and domain configuration");
-                return Err(e);
-            }
-        }
-
-        // Select campaign type
+        // Campaign type selection
         let campaign_options = vec![
-            "🎯 High-Value Projects (Recent + Active) - Recommended",
-            "🚀 Startup Founders (Early commits + ownership)",
-            "🏢 Enterprise Contacts (Large repos + teams)",
-            "🔥 Web3/AI/Fintech Focus",
-            "📊 All Valid Emails",
-            "📈 Custom Filtered Campaign",
+            "🎯 First Contact Campaign (Investment Proposals)",
+            "📬 Follow-up Campaign (Second Touch)",
+            "📊 Show Email Statistics",
+            "🔍 Check Specific Email Status",
         ];
 
         let selection = Select::with_theme(&ColorfulTheme::default())
             .with_prompt("Select campaign type")
-            .default(0)
             .items(&campaign_options)
             .interact()?;
 
-        println!(
-            "\n🔍 Loading recipients for campaign type: {}",
-            campaign_options[selection]
-        );
-
-        // Load email recipients based on selection
-        let recipients = self.load_email_recipients_for_campaign(selection).await?;
-
-        if recipients.is_empty() {
-            println!("❌ No recipients found for this campaign type");
-            println!("💡 Try running Phase 2 to collect more email data first");
-            return Ok(());
-        }
-
-        println!("📋 Found {} potential recipients", recipients.len());
-
-        // Show preview
-        self.show_campaign_preview(&recipients);
-
-        // Get batch size
-        let suggested_batch = if recipients.len() > 100 {
-            50
-        } else {
-            recipients.len()
-        };
-        let batch_size: usize = Input::with_theme(&ColorfulTheme::default())
-            .with_prompt("How many emails to send in this batch?")
-            .default(suggested_batch)
-            .interact_text()?;
-        let recipient_len = recipients.len();
-
-        let batch_recipients = recipients.into_iter().take(batch_size).collect::<Vec<_>>();
-
-        println!("\n📤 Campaign Summary:");
-        println!("  📧 Emails to send: {}", batch_recipients.len());
-        println!(
-            "  ⏱️  Estimated time: {} minutes",
-            (batch_recipients.len() * 3) / 60 + 1
-        );
-        println!("  🎯 Template: {}", sender.config.template_name);
-        println!(
-            "  📨 From: {} <{}>",
-            sender.config.from_name, sender.config.from_email
-        );
-
-        // Final confirmation
-        let proceed = Confirm::with_theme(&ColorfulTheme::default())
-            .with_prompt(&format!(
-                "Send email campaign to {} recipients?",
-                batch_recipients.len()
-            ))
-            .default(false)
-            .interact()?;
-
-        if !proceed {
-            println!("❌ Campaign cancelled");
-            return Ok(());
-        }
-
-        println!("\n🚀 Starting email campaign...");
-        println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        println!("⏱️  Using 3-second delays between emails for optimal deliverability");
-        println!("📊 Progress will be shown in real-time");
-
-        let start_time = std::time::Instant::now();
-        let results = sender.send_batch(&batch_recipients, 3000).await?; // 3 second delay
-        let duration = start_time.elapsed();
-
-        // Detailed results analysis
-        let successful = results.iter().filter(|r| r.is_ok()).count();
-        let failed = results.iter().filter(|r| r.is_err()).count();
-
-        println!("\n🎉 Campaign Complete!");
-        println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        println!("✅ Successful sends: {}", successful);
-        println!("❌ Failed sends: {}", failed);
-        println!(
-            "📊 Success rate: {:.1}%",
-            (successful as f64 / batch_recipients.len() as f64) * 100.0
-        );
-        println!(
-            "⏱️  Total time: {:.1} minutes",
-            duration.as_secs() as f64 / 60.0
-        );
-        println!(
-            "📈 Average time per email: {:.1} seconds",
-            duration.as_secs() as f64 / batch_recipients.len() as f64
-        );
-
-        if failed > 0 {
-            println!("\n⚠️  Failed sends breakdown:");
-            for (i, result) in results.iter().enumerate() {
-                if let Err(error) = result {
-                    println!("   • {}: {}", batch_recipients[i].email, error);
-                }
-            }
-            println!("💡 Check Mailgun dashboard for detailed bounce/failure analysis");
-        }
-
-        // Analytics summary
-        let category_stats = self.calculate_category_stats(&batch_recipients);
-        println!("\n📊 Campaign Analytics:");
-        for (category, count) in category_stats {
-            println!(
-                "  {} {}: {} emails",
-                self.get_category_emoji(&category),
-                category,
-                count
-            );
-        }
-
-        println!("\n🎯 Next Steps:");
-        println!("  📈 Monitor open rates in Mailgun dashboard");
-        println!("  📧 Watch for email replies in your inbox");
-        println!("  📊 Track click-through rates on links");
-        if batch_recipients.len() < recipient_len {
-            println!(
-                "  🔄 Consider sending another batch to remaining {} recipients",
-                recipient_len - batch_recipients.len()
-            );
+        match selection {
+            0 => self.run_first_contact_campaign(&sender).await?,
+            1 => self.run_followup_campaign(&sender).await?,
+            2 => self.show_email_statistics(&sender).await?,
+            3 => self.check_email_status(&sender).await?,
+            _ => return Ok(()),
         }
 
         Ok(())
     }
 
+    async fn run_first_contact_campaign(&self, sender: &MailgunSender) -> Result<()> {
+        println!("\n🎯 First Contact Campaign");
+        println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+
+        // Load recipients who haven't received the first email
+        let all_recipients = self.load_email_recipients_for_campaign(0).await?;
+        let mut first_contact_candidates = Vec::new();
+
+        println!("🔍 Filtering candidates who haven't received first contact...");
+        for recipient in all_recipients {
+            let status = sender
+                .check_email_status(&self.db_pool, &recipient.email)
+                .await?;
+            if status.can_send_first {
+                first_contact_candidates.push(recipient);
+            }
+        }
+
+        if first_contact_candidates.is_empty() {
+            println!("✅ All eligible recipients have already received first contact emails!");
+            return Ok(());
+        }
+
+        println!(
+            "📋 Found {} candidates for first contact",
+            first_contact_candidates.len()
+        );
+        self.show_campaign_preview(&first_contact_candidates);
+
+        let batch_size: usize = Input::with_theme(&ColorfulTheme::default())
+            .with_prompt("How many first contact emails to send?")
+            .default(first_contact_candidates.len().min(50))
+            .interact_text()?;
+
+        let batch = first_contact_candidates
+            .into_iter()
+            .take(batch_size)
+            .collect::<Vec<_>>();
+
+        if !Confirm::with_theme(&ColorfulTheme::default())
+            .with_prompt(&format!("Send {} investment proposal emails?", batch.len()))
+            .interact()?
+        {
+            return Ok(());
+        }
+
+        self.send_campaign_batch(
+            &sender,
+            &batch,
+            EmailTemplate::InvestmentProposal,
+            "first_contact",
+        )
+        .await
+    }
+
+    async fn run_followup_campaign(&self, sender: &MailgunSender) -> Result<()> {
+        println!("\n📬 Follow-up Campaign");
+        println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+
+        let days_since_first: i64 = Input::with_theme(&ColorfulTheme::default())
+            .with_prompt("Minimum days since first email")
+            .default(7)
+            .interact_text()?;
+
+        let followup_emails = sender
+            .get_followup_candidates(&self.db_pool, days_since_first)
+            .await?;
+
+        if followup_emails.is_empty() {
+            println!(
+                "📭 No follow-up candidates found (need {} days since first email)",
+                days_since_first
+            );
+            return Ok(());
+        }
+
+        println!(
+            "📋 Found {} candidates for follow-up",
+            followup_emails.len()
+        );
+
+        // Convert emails back to recipients (you might want to store more data in tracking)
+        let mut followup_recipients = Vec::new();
+        for email in &followup_emails {
+            // Simplified - you might want to fetch full recipient data from your database
+            if let Some(recipient) = self.find_recipient_by_email(email).await? {
+                followup_recipients.push(recipient);
+            }
+        }
+
+        if followup_recipients.is_empty() {
+            println!("❌ Could not find recipient data for follow-up emails");
+            return Ok(());
+        }
+
+        let batch_size: usize = Input::with_theme(&ColorfulTheme::default())
+            .with_prompt("How many follow-up emails to send?")
+            .default(followup_recipients.len().min(25))
+            .interact_text()?;
+
+        let batch = followup_recipients
+            .into_iter()
+            .take(batch_size)
+            .collect::<Vec<_>>();
+
+        if !Confirm::with_theme(&ColorfulTheme::default())
+            .with_prompt(&format!("Send {} follow-up emails?", batch.len()))
+            .interact()?
+        {
+            return Ok(());
+        }
+
+        self.send_campaign_batch(&sender, &batch, EmailTemplate::FollowUp, "follow_up")
+            .await
+    }
+
+    async fn send_campaign_batch(
+        &self,
+        sender: &MailgunSender,
+        recipients: &[crate::email_sender::EmailRecipient],
+        template: EmailTemplate,
+        campaign_type: &str,
+    ) -> Result<()> {
+        println!("\n🚀 Sending {} emails...", recipients.len());
+
+        let mut successful = 0;
+        let mut failed = 0;
+
+        for (i, recipient) in recipients.iter().enumerate() {
+            println!(
+                "[{}/{}] Sending to {} ({})",
+                i + 1,
+                recipients.len(),
+                recipient.recipient_name,
+                recipient.email
+            );
+
+            match sender
+                .send_email_with_tracking(&self.db_pool, recipient, template.clone(), campaign_type)
+                .await
+            {
+                Ok(response) => {
+                    println!("✅ Sent: {}", response.message);
+                    successful += 1;
+                }
+                Err(e) => {
+                    println!("❌ Failed: {}", e);
+                    failed += 1;
+                }
+            }
+
+            // Rate limiting
+            if i < recipients.len() - 1 {
+                tokio::time::sleep(tokio::time::Duration::from_millis(3000)).await;
+            }
+        }
+
+        println!("\n🎉 Campaign Complete!");
+        println!("✅ Successful: {}", successful);
+        println!("❌ Failed: {}", failed);
+
+        Ok(())
+    }
+
+    async fn show_email_statistics(&self, sender: &MailgunSender) -> Result<()> {
+        println!("\n📊 Email Campaign Statistics");
+        println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+
+        let conn = self.db_pool.get().await?;
+
+        let total_first: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM email_tracking WHERE template_name = 'investment_proposal'",
+            [],
+            |row| row.get(0),
+        )?;
+
+        let total_followup: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM email_tracking WHERE template_name = 'follow_up'",
+            [],
+            |row| row.get(0),
+        )?;
+
+        let unique_contacts: i64 = conn.query_row(
+            "SELECT COUNT(DISTINCT email) FROM email_tracking",
+            [],
+            |row| row.get(0),
+        )?;
+
+        println!("📧 Investment Proposals Sent: {}", total_first);
+        println!("📬 Follow-ups Sent: {}", total_followup);
+        println!("👥 Unique Contacts: {}", unique_contacts);
+
+        if total_first > 0 {
+            let followup_rate = (total_followup as f64 / total_first as f64) * 100.0;
+            println!("📈 Follow-up Rate: {:.1}%", followup_rate);
+        }
+
+        // Recent activity
+        let recent: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM email_tracking WHERE sent_at > ?",
+            [&(chrono::Utc::now() - chrono::Duration::days(7)).to_rfc3339()],
+            |row| row.get(0),
+        )?;
+
+        println!("🕐 Emails sent in last 7 days: {}", recent);
+
+        Ok(())
+    }
+
+    async fn check_email_status(&self, sender: &MailgunSender) -> Result<()> {
+        let email: String = Input::with_theme(&ColorfulTheme::default())
+            .with_prompt("Enter email to check")
+            .interact_text()?;
+
+        let status = sender.check_email_status(&self.db_pool, &email).await?;
+
+        println!("\n📋 Status for {}", email);
+        println!("🎯 Can send first email: {}", status.can_send_first);
+        println!("📬 Can send follow-up: {}", status.can_send_followup);
+
+        if let Some(last_sent) = status.last_sent {
+            println!("🕐 Last email sent: {}", last_sent);
+        }
+
+        if !status.templates_sent.is_empty() {
+            println!("📨 Templates sent: {}", status.templates_sent.join(", "));
+        }
+
+        Ok(())
+    }
+
+    // FROM YOUR ORIGINAL CODE - Load email recipients for campaign
     async fn load_email_recipients_for_campaign(
         &self,
         campaign_type: usize,
@@ -251,6 +338,7 @@ impl CliApp {
         Ok(recipients)
     }
 
+    // FROM YOUR ORIGINAL CODE - Show campaign preview
     fn show_campaign_preview(&self, recipients: &[EmailRecipient]) {
         println!("\n📋 Campaign Preview:");
         println!("━━━━━━━━━━━━━━━━━━━━━");
@@ -285,26 +373,11 @@ impl CliApp {
         }
     }
 
-    fn calculate_category_stats(&self, recipients: &[EmailRecipient]) -> Vec<(String, usize)> {
-        let mut stats = std::collections::HashMap::new();
-
-        for recipient in recipients {
-            *stats.entry(recipient.domain_category.clone()).or_insert(0) += 1;
-        }
-
-        let mut result: Vec<_> = stats.into_iter().collect();
-        result.sort_by(|a, b| b.1.cmp(&a.1)); // Sort by count descending
-        result
-    }
-
-    fn get_category_emoji(&self, category: &str) -> &'static str {
-        match category {
-            "ai" => "🤖",
-            "web3" => "🪙",
-            "fintech" => "💳",
-            "enterprise" => "🏢",
-            "saas" => "☁️",
-            _ => "📦",
-        }
+    // Helper method to find recipient by email
+    async fn find_recipient_by_email(&self, email: &str) -> Result<Option<EmailRecipient>> {
+        // Load all recipients and find the matching one
+        let recipients = self.load_email_recipients_for_campaign(0).await?;
+        Ok(recipients.into_iter().find(|r| r.email == email))
     }
 }
+
