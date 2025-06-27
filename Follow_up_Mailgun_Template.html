@@ -1,51 +1,64 @@
 <script type="text/javascript">
-        var gk_isXlsx = false;
-        var gk_xlsxFileLookup = {};
-        var gk_fileData = {};
-        function filledCell(cell) {
-          return cell !== '' && cell != null;
-        }
-        function loadFileData(filename) {
-        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
-            try {
-                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
-                var firstSheetName = workbook.SheetNames[0];
-                var worksheet = workbook.Sheets[firstSheetName];
+  var gk_isXlsx = false;
+  var gk_xlsxFileLookup = {};
+  var gk_fileData = {};
+  function filledCell(cell) {
+    return cell !== '' && cell != null;
+  }
+  function loadFileData(filename) {
+    if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+      try {
+        var workbook = XLSX.read(gk_fileData[filename], {type: 'base64'});
+        var firstSheetName = workbook.SheetNames[0];
+        var worksheet = workbook.Sheets[firstSheetName];
 
-                // Convert sheet to JSON to filter blank rows
-                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
-                // Filter out blank rows (rows where all cells are empty, null, or undefined)
-                var filteredData = jsonData.filter(row => row.some(filledCell));
+        // Convert sheet to JSON to filter blank rows
+        var jsonData = XLSX.utils.sheet_to_json(worksheet, {header: 1, blankrows: false, defval: ''});
+        // Filter out blank rows (rows where all cells are empty, null, or undefined)
+        var filteredData = jsonData.filter(row => row.some(filledCell));
 
-                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
-                var headerRowIndex = filteredData.findIndex((row, index) =>
-                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
-                );
-                // Fallback
-                if (headerRowIndex === -1 || headerRowIndex > 25) {
-                  headerRowIndex = 0;
-                }
+        // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+        var headerRowIndex = filteredData.findIndex((row, index) =>
+          row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+        );
+        // Fallback
+        if (headerRowIndex === -1 || headerRowIndex > 25) {
+          headerRowIndex = 0;
+        }
 
-                // Convert filtered JSON back to CSV
-                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
-                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
-                return csv;
-            } catch (e) {
-                console.error(e);
-                return "";
-            }
-        }
-        return gk_fileData[filename] || "";
-        }
-        </script><!DOCTYPE html>
+        // Convert filtered JSON back to CSV
+        var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+        csv = XLSX.utils.sheet_to_csv(csv, {header: 1});
+        return csv;
+      } catch (e) {
+        console.error(e);
+        return "";
+      }
+    }
+    return gk_fileData[filename] || "";
+  }
+</script>
+<!DOCTYPE html>
 <html>
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Following Up on Your Projects with FabInvest</title>
 </head>
-<body style="margin: 0; padding: 0; font-family: Arial, Helvetica, sans-serif; color: #333333; background-color: #f4f4f4;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; margin: 20px auto; background-color: #ffffff; border: 1px solid #e0e0e0;">
+
+<body
+  style="margin: 0; padding: 0; font-family: Arial, Helvetica, sans-serif; color: #333333; background-color: #f4f4f4;">
+
+  {{#debug_mode}}
+  <div
+    style="background-color: #ff6b6b; color: white; padding: 10px; margin-bottom: 20px; text-align: center; font-weight: bold;">
+    🐛 DEBUG MODE - This email was originally intended for: {{debug_original_email}}
+  </div>
+  {{/debug_mode}}
+
+  <table width="100%" cellpadding="0" cellspacing="0"
+    style="max-width: 600px; margin: 20px auto; background-color: #ffffff; border: 1px solid #e0e0e0;">
     <tr>
       <td style="padding: 20px; text-align: center; background-color: #004aad; color: #ffffff;">
         <h1 style="margin: 0; font-size: 24px;">FabInvest</h1>
@@ -56,13 +69,21 @@
       <td style="padding: 20px;">
         <p style="font-size: 16px; line-height: 1.5;">Dear {{recipient_name}},</p>
         <p style="font-size: 16px; line-height: 1.5;">
-          I’m following up on my previous email about your work on <strong>{{repo_name}}</strong> and other potential projects. At <a href="https://fabinvest.com" style="color: #004aad; text-decoration: none;">FabInvest</a>, we’re excited about supporting developers like you with venture capital or growth capital to scale innovative tech ventures.
+          I’m following up on my previous email about your work on <strong>{{repo_name}}</strong> and other potential
+          projects. At <a href="https://fabinvest.com" style="color: #004aad; text-decoration: none;">FabInvest</a>,
+          we’re excited about supporting developers like you with venture capital or growth capital to scale innovative
+          tech ventures.
         </p>
         <p style="font-size: 16px; line-height: 1.5;">
-          Could you share a quick update on any projects you’re working on that might align with our private equity focus? Whether it’s <strong>{{repo_name}}</strong> or something else, we’d love to hear about your goals and any fundraising needs.
+          Could you share a quick update on any projects you’re working on that might align with our private equity
+          focus? Whether it’s <strong>{{repo_name}}</strong> or something else, we’d love to hear about your goals and
+          any fundraising needs.
         </p>
         <p style="font-size: 16px; line-height: 1.5;">
-          If you’re available, let’s hop on a brief call to explore opportunities. Book a slot here: <a href="{{calendar_link}}" style="color: #004aad; text-decoration: none;">Schedule a Call</a>, or simply reply to this email. For more on our approach, visit <a href="https://fabinvest.com" style="color: #004aad; text-decoration: none;">fabinvest.com</a>.
+          If you’re available, let’s hop on a brief call to explore opportunities. Book a slot here: <a
+            href="{{calendar_link}}" style="color: #004aad; text-decoration: none;">Schedule a Call</a>, or simply reply
+          to this email. For more on our approach, visit <a href="https://fabinvest.com"
+            style="color: #004aad; text-decoration: none;">fabinvest.com</a>.
         </p>
         <p style="font-size: 16px; line-height: 1.5;">
           Looking forward to connecting and supporting your work!
@@ -83,7 +104,8 @@
       <td style="padding: 20px; text-align: center; background-color: #f4f4f4; font-size: 12px; color: #666666;">
         <p style="margin: 0;">
           FabInvest, [Your Address, e.g., Zurich, Switzerland]<br>
-          You are receiving this email because of your contributions to {{repo_name}}. Not interested? <a href="%unsubscribe%" style="color: #004aad; text-decoration: none;">Unsubscribe</a>
+          You are receiving this email because of your contributions to {{repo_name}}. Not interested? <a
+            href="%unsubscribe%" style="color: #004aad; text-decoration: none;">Unsubscribe</a>
         </p>
         <p style="margin: 10px 0 0;">
           <a href="[Your Privacy Policy URL]" style="color: #004aad; text-decoration: none;">Privacy Policy</a>
@@ -92,4 +114,5 @@
     </tr>
   </table>
 </body>
+
 </html>

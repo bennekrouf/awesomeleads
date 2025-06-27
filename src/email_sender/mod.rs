@@ -69,7 +69,7 @@ pub struct EmailStatus {
 
 pub struct MailgunSender {
     pub config: MailgunConfig,
-    client: Client,
+    pub client: Client,
 }
 
 impl MailgunSender {
@@ -119,6 +119,38 @@ impl MailgunSender {
             last_sent,
             templates_sent,
         })
+    }
+
+    // Get candidates for follow-up emails
+    pub async fn get_followup_candidates(
+        &self,
+        db_pool: &DbPool,
+        days_since_first: i64,
+    ) -> Result<Vec<String>, Box<dyn std::error::Error + Send + Sync>> {
+        let conn = db_pool.get().await?;
+        let cutoff_date =
+            (chrono::Utc::now() - chrono::Duration::days(days_since_first)).to_rfc3339();
+
+        let mut stmt = conn.prepare(
+            r#"
+            SELECT DISTINCT email FROM email_tracking 
+            WHERE template_name = 'investment_proposal' 
+            AND sent_at <= ?1
+            AND email NOT IN (
+                SELECT email FROM email_tracking WHERE template_name = 'follow_up'
+            )
+            ORDER BY sent_at ASC
+            "#,
+        )?;
+
+        let rows = stmt.query_map([cutoff_date], |row| Ok(row.get::<_, String>(0)?))?;
+
+        let mut emails = Vec::new();
+        for row in rows {
+            emails.push(row?);
+        }
+
+        Ok(emails)
     }
 
     // Enhanced send method with tracking
@@ -204,37 +236,6 @@ impl MailgunSender {
         )?;
 
         Ok(())
-    }
-
-    // Get candidates for follow-up emails
-    pub async fn get_followup_candidates(
-        &self,
-        db_pool: &DbPool,
-        days_since_first: i64,
-    ) -> Result<Vec<String>, Box<dyn std::error::Error + Send + Sync>> {
-        let conn = db_pool.get().await?;
-        let cutoff_date = (Utc::now() - chrono::Duration::days(days_since_first)).to_rfc3339();
-
-        let mut stmt = conn.prepare(
-            r#"
-            SELECT DISTINCT email FROM email_tracking 
-            WHERE template_name = 'investment_proposal' 
-            AND sent_at <= ?1
-            AND email NOT IN (
-                SELECT email FROM email_tracking WHERE template_name = 'follow_up'
-            )
-            ORDER BY sent_at ASC
-            "#,
-        )?;
-
-        let rows = stmt.query_map([cutoff_date], |row| Ok(row.get::<_, String>(0)?))?;
-
-        let mut emails = Vec::new();
-        for row in rows {
-            emails.push(row?);
-        }
-
-        Ok(emails)
     }
 
     // Original send_email method (keep for compatibility)
@@ -486,3 +487,232 @@ pub fn generate_specific_aspect(commits: Option<i32>, description: &Option<Strin
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct EmailDebugConfig {
+    pub enabled: bool,
+    pub debug_email: String,
+    pub skip_tracking: bool,
+}
+
+impl EmailDebugConfig {
+    pub fn from_env() -> Self {
+        Self {
+            enabled: std::env::var("EMAIL_DEBUG_MODE")
+                .unwrap_or_else(|_| "false".to_string())
+                .parse()
+                .unwrap_or(false),
+            debug_email: std::env::var("EMAIL_DEBUG_ADDRESS")
+                .unwrap_or_else(|_| "mohamed.bennekrouf@gmail.com".to_string()),
+            skip_tracking: std::env::var("EMAIL_DEBUG_SKIP_TRACKING")
+                .unwrap_or_else(|_| "true".to_string())
+                .parse()
+                .unwrap_or(true),
+        }
+    }
+}
+
+impl MailgunSender {
+    // Enhanced send method with debug mode support
+    pub async fn send_email_with_debug(
+        &self,
+        db_pool: &DbPool,
+        recipient: &EmailRecipient,
+        template: EmailTemplate,
+        campaign_type: &str,
+        debug_config: &EmailDebugConfig,
+    ) -> Result<MailgunResponse, Box<dyn std::error::Error + Send + Sync>> {
+        // In debug mode, skip the duplicate check
+        if !debug_config.enabled {
+            // Normal mode: Check if we've already sent this template
+            let status = self.check_email_status(db_pool, &recipient.email).await?;
+
+            match template {
+                EmailTemplate::InvestmentProposal if !status.can_send_first => {
+                    return Err("Already sent investment proposal to this email".into());
+                }
+                EmailTemplate::FollowUp if !status.can_send_followup => {
+                    return Err("Cannot send follow-up: no investment proposal sent or follow-up already sent".into());
+                }
+                _ => {}
+            }
+        }
+
+        // Create debug recipient if debug mode is enabled
+        let actual_recipient = if debug_config.enabled {
+            EmailRecipient {
+                email: debug_config.debug_email.clone(),
+                recipient_name: format!("DEBUG: {}", recipient.recipient_name),
+                repo_name: recipient.repo_name.clone(),
+                specific_aspect: recipient.specific_aspect.clone(),
+                contact_email: recipient.contact_email.clone(),
+                contact_phone: recipient.contact_phone.clone(),
+                engagement_score: recipient.engagement_score,
+                domain_category: recipient.domain_category.clone(),
+                company_size: recipient.company_size.clone(),
+            }
+        } else {
+            recipient.clone()
+        };
+
+        // Generate subject with debug prefix if needed
+        let subject = match template {
+            EmailTemplate::InvestmentProposal => {
+                if debug_config.enabled {
+                    format!(
+                        "[DEBUG for {}] Exploring Your {} Project with FabInvest",
+                        recipient.email, recipient.repo_name
+                    )
+                } else {
+                    format!(
+                        "Exploring Your {} Project with FabInvest",
+                        recipient.repo_name
+                    )
+                }
+            }
+            EmailTemplate::FollowUp => {
+                if debug_config.enabled {
+                    format!(
+                        "[DEBUG for {}] Following Up on {} - FabInvest",
+                        recipient.email, recipient.repo_name
+                    )
+                } else {
+                    format!("Following Up on {} - FabInvest", recipient.repo_name)
+                }
+            }
+        };
+
+        // Update config to use the correct template
+        let mut config = self.config.clone();
+        config.template_name = template.mailgun_name().to_string();
+        let sender_with_template = MailgunSender::new(config);
+
+        // Send the email with debug recipient
+        let response = sender_with_template
+            .send_email_with_debug_variables(
+                &actual_recipient,
+                &subject,
+                recipient,
+                debug_config.enabled,
+            )
+            .await?;
+
+        // Track the sent email only if not in debug mode or if tracking is not skipped
+        if !debug_config.enabled || !debug_config.skip_tracking {
+            self.track_sent_email(
+                db_pool,
+                &recipient.email, // Always track the original email, not debug email
+                template.db_name(),
+                &if debug_config.enabled {
+                    format!("debug_{}", campaign_type)
+                } else {
+                    campaign_type.to_string()
+                },
+                &response.id,
+            )
+            .await?;
+        }
+
+        Ok(response)
+    }
+
+    // Enhanced send_email method with debug variable support
+    pub async fn send_email_with_debug_variables(
+        &self,
+        recipient: &EmailRecipient,
+        subject: &str,
+        original_recipient: &EmailRecipient, // Original recipient data for template variables
+        is_debug: bool,
+    ) -> Result<MailgunResponse, Box<dyn std::error::Error + Send + Sync>> {
+        let url = format!("{}/{}/messages", self.config.base_url, self.config.domain);
+
+        debug!("Preparing email for {}: {}", recipient.email, subject);
+
+        // Create Mailgun variables JSON with original recipient data and debug info
+        let variables = if is_debug {
+            json!({
+                "recipient_name": original_recipient.recipient_name,
+                "repo_name": original_recipient.repo_name,
+                "specific_aspect": original_recipient.specific_aspect,
+                "contact_email": original_recipient.contact_email,
+                "contact_phone": original_recipient.contact_phone,
+                "debug_original_email": original_recipient.email,
+                "debug_mode": "This is a DEBUG email. Original recipient: ".to_string() + &original_recipient.email
+            })
+        } else {
+            json!({
+                "recipient_name": recipient.recipient_name,
+                "repo_name": recipient.repo_name,
+                "specific_aspect": recipient.specific_aspect,
+                "contact_email": recipient.contact_email,
+                "contact_phone": recipient.contact_phone
+            })
+        };
+
+        debug!("Template variables: {}", variables);
+
+        let mut form_data = HashMap::new();
+        form_data.insert(
+            "from",
+            format!("{} <{}>", self.config.from_name, self.config.from_email),
+        );
+        form_data.insert(
+            "to",
+            format!("{} <{}>", recipient.recipient_name, recipient.email),
+        );
+        form_data.insert("subject", subject.to_string());
+        form_data.insert("template", self.config.template_name.clone());
+        form_data.insert("h:X-Mailgun-Variables", variables.to_string());
+
+        // Add tracking parameters
+        form_data.insert("o:tracking", "yes".to_string());
+        form_data.insert("o:tracking-clicks", "yes".to_string());
+        form_data.insert("o:tracking-opens", "yes".to_string());
+
+        // Add custom tags for analytics (with debug prefix if needed)
+        let tag_prefix = if is_debug { "debug-" } else { "" };
+        form_data.insert(
+            "o:tag",
+            format!(
+                "{}campaign-{}",
+                tag_prefix,
+                chrono::Utc::now().format("%Y-%m")
+            ),
+        );
+        form_data.insert(
+            "o:tag",
+            format!(
+                "{}category-{}",
+                tag_prefix, original_recipient.domain_category
+            ),
+        );
+        form_data.insert(
+            "o:tag",
+            format!(
+                "{}score-{}",
+                tag_prefix, original_recipient.engagement_score
+            ),
+        );
+
+        debug!("Sending POST request to: {}", url);
+
+        let response = self
+            .client
+            .post(&url)
+            .basic_auth("api", Some(&self.config.api_key))
+            .form(&form_data)
+            .send()
+            .await?;
+
+        debug!("Mailgun response status: {}", response.status());
+
+        if response.status().is_success() {
+            let mailgun_response: MailgunResponse = response.json().await?;
+            debug!("Mailgun success response: {:?}", mailgun_response);
+            Ok(mailgun_response)
+        } else {
+            let error_text = response.text().await?;
+            error!("Mailgun API error: {}", error_text);
+            Err(format!("Mailgun error: {}", error_text).into())
+        }
+    }
+}
