@@ -23,8 +23,29 @@ type AppResult<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sy
 async fn main() -> AppResult<()> {
     // Load .env FIRST, before anything else
     match dotenv::dotenv() {
-        Ok(path) => println!("✅ Loaded .env from: {:?}", path),
-        Err(e) => println!("⚠️  No .env file found or error loading: {}", e),
+        Ok(path) => {
+            println!("✅ Loaded .env from: {:?}", path);
+
+            // Verify critical debug variables are loaded
+            if let Ok(debug_mode) = std::env::var("EMAIL_DEBUG_MODE") {
+                println!("🐛 EMAIL_DEBUG_MODE loaded: {}", debug_mode);
+            } else {
+                println!("⚠️  EMAIL_DEBUG_MODE not found in environment");
+            }
+
+            if let Ok(debug_email) = std::env::var("EMAIL_DEBUG_ADDRESS") {
+                println!("📧 EMAIL_DEBUG_ADDRESS loaded: {}", debug_email);
+            } else {
+                println!("⚠️  EMAIL_DEBUG_ADDRESS not found in environment");
+            }
+        }
+        Err(e) => {
+            println!("❌ Failed to load .env: {}", e);
+            println!(
+                "💡 Make sure .env file exists in: {:?}",
+                std::env::current_dir().unwrap_or_default()
+            );
+        }
     }
 
     // Load configuration

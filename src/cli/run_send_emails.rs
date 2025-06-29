@@ -1,6 +1,6 @@
 // src/cli/run_send_emails.rs - COMPLETE VERSION WITH INTEGRATED DEBUG MODE
 use crate::email_export::{EmailDatabase, EmailExportConfigBuilder, EmailProcessor};
-use crate::email_rate_limiting::{EmailRateLimiter, RateLimitStatus};
+use crate::email_rate_limiting::EmailRateLimiter;
 use crate::email_sender::{
     extract_repo_name_from_url, generate_specific_aspect, EmailRecipient, EmailTemplate,
     MailgunConfig, MailgunSender,
@@ -718,65 +718,53 @@ impl CliApp {
         campaign_type: &str,
         debug_config: &EmailDebugConfig,
     ) -> Result<crate::email_sender::MailgunResponse> {
-        // In debug mode, skip the duplicate check
-        if !debug_config.enabled {
-            // Normal mode: Check if we've already sent this template
-            let status = sender
-                .check_email_status(&self.db_pool, &recipient.email)
-                .await?;
-
-            match template {
-                EmailTemplate::InvestmentProposal if !status.can_send_first => {
-                    return Err("Already sent investment proposal to this email".into());
-                }
-                EmailTemplate::FollowUp if !status.can_send_followup => {
-                    return Err("Cannot send follow-up: no investment proposal sent or follow-up already sent".into());
-                }
-                _ => {}
-            }
-        }
-
-        // Create debug recipient if debug mode is enabled
-        let actual_recipient = if debug_config.enabled {
-            EmailRecipient {
-                email: debug_config.debug_email.clone(),
-                recipient_name: format!("DEBUG: {}", recipient.recipient_name),
-                repo_name: recipient.repo_name.clone(),
-                specific_aspect: recipient.specific_aspect.clone(),
-                contact_email: recipient.contact_email.clone(),
-                contact_phone: recipient.contact_phone.clone(),
-                engagement_score: recipient.engagement_score,
-                domain_category: recipient.domain_category.clone(),
-                company_size: recipient.company_size.clone(),
-            }
+        if debug_config.enabled {
+            // DEBUG MODE: Use custom debug email sending
+            self.send_debug_email(sender, recipient, template, campaign_type, debug_config)
+                .await
         } else {
-            recipient.clone()
+            // PRODUCTION MODE: Use the safe tracked method
+            sender
+                .send_email_with_tracking(&self.db_pool, recipient, template, campaign_type)
+                .await
+        }
+    }
+
+    // 2. ADD this new method (takes all the debug logic from your old method):
+    async fn send_debug_email(
+        &self,
+        sender: &MailgunSender,
+        recipient: &EmailRecipient,
+        template: EmailTemplate,
+        campaign_type: &str,
+        debug_config: &EmailDebugConfig,
+    ) -> Result<crate::email_sender::MailgunResponse> {
+        // Create debug recipient (redirect email)
+        let actual_recipient = EmailRecipient {
+            email: debug_config.debug_email.clone(),
+            recipient_name: format!("DEBUG: {}", recipient.recipient_name),
+            repo_name: recipient.repo_name.clone(),
+            specific_aspect: recipient.specific_aspect.clone(),
+            contact_email: recipient.contact_email.clone(),
+            contact_phone: recipient.contact_phone.clone(),
+            engagement_score: recipient.engagement_score,
+            domain_category: recipient.domain_category.clone(),
+            company_size: recipient.company_size.clone(),
         };
 
-        // Generate subject with debug prefix if needed
+        // Generate debug subject
         let subject = match template {
             EmailTemplate::InvestmentProposal => {
-                if debug_config.enabled {
-                    format!(
-                        "[DEBUG for {}] Exploring Your {} Project with FabInvest",
-                        recipient.email, recipient.repo_name
-                    )
-                } else {
-                    format!(
-                        "Exploring Your {} Project with FabInvest",
-                        recipient.repo_name
-                    )
-                }
+                format!(
+                    "[DEBUG for {}] Exploring Your {} Project with FabInvest",
+                    recipient.email, recipient.repo_name
+                )
             }
             EmailTemplate::FollowUp => {
-                if debug_config.enabled {
-                    format!(
-                        "[DEBUG for {}] Following Up on {} - FabInvest",
-                        recipient.email, recipient.repo_name
-                    )
-                } else {
-                    format!("Following Up on {} - FabInvest", recipient.repo_name)
-                }
+                format!(
+                    "[DEBUG for {}] Following Up on {} - FabInvest",
+                    recipient.email, recipient.repo_name
+                )
             }
         };
 
@@ -785,31 +773,22 @@ impl CliApp {
         config.template_name = template.mailgun_name().to_string();
         let sender_with_template = MailgunSender::new(config);
 
-        // Send the email with enhanced variables for debug mode
-        let response = if debug_config.enabled {
-            self.send_email_with_debug_variables(
+        // Send with debug variables (using your existing method)
+        let response = self
+            .send_email_with_debug_variables(
                 &sender_with_template,
                 &actual_recipient,
                 &subject,
-                recipient,
+                recipient, // Original recipient for template vars
             )
-            .await?
-        } else {
-            sender_with_template
-                .send_email(&actual_recipient, &subject)
-                .await?
-        };
+            .await?;
 
-        // Track the sent email only if not in debug mode or if tracking is not skipped
-        if !debug_config.enabled || !debug_config.skip_tracking {
+        // Track only if not skipping tracking
+        if !debug_config.skip_tracking {
             self.track_sent_email(
-                &recipient.email, // Always track the original email, not debug email
+                &recipient.email, // Track original email, not debug email
                 template.db_name(),
-                &if debug_config.enabled {
-                    format!("debug_{}", campaign_type)
-                } else {
-                    campaign_type.to_string()
-                },
+                &format!("debug_{}", campaign_type),
                 &response.id,
             )
             .await?;
