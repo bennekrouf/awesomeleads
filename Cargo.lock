@@ -825,6 +825,7 @@ dependencies = [
  "chrono",
  "dialoguer",
  "dotenv",
+ "fastrand",
  "mobc",
  "octocrab",
  "regex",

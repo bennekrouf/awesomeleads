@@ -6,11 +6,11 @@ mod cli;
 mod config;
 mod database;
 mod email_export;
+mod email_rate_limiting;
 mod email_sender; // NEW: Add this line
 mod models;
 mod scraper_util;
 mod sources;
-
 use config::{load_config, Config};
 use database::create_db_pool;
 use models::CliApp;
@@ -21,7 +21,11 @@ type AppResult<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sy
 
 #[tokio::main]
 async fn main() -> AppResult<()> {
-    dotenv::dotenv().ok();
+    // Load .env FIRST, before anything else
+    match dotenv::dotenv() {
+        Ok(path) => println!("✅ Loaded .env from: {:?}", path),
+        Err(e) => println!("⚠️  No .env file found or error loading: {}", e),
+    }
 
     // Load configuration
     let config = match load_config("config.yml").await {

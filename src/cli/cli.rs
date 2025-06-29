@@ -19,6 +19,7 @@ pub enum MenuAction {
     ShowStats,
     ShowPhase2Progress,
     ExportEmails,
+    DebugEnvironmentCheck,
     Exit,
 }
 
@@ -47,6 +48,7 @@ impl std::fmt::Display for MenuAction {
             MenuAction::ShowStats => write!(f, "📊 Show database statistics"),
             MenuAction::ShowPhase2Progress => write!(f, "📈 Show Phase 2 detailed progress"),
             MenuAction::ExportEmails => write!(f, "📧 Export Lead Emails to CSV"),
+            MenuAction::DebugEnvironmentCheck => write!(f, "🔍 Debug Environment Check"), // ADD THIS
             MenuAction::Exit => write!(f, "🚪 Exit"),
         }
     }

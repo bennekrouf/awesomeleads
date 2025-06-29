@@ -1,11 +1,12 @@
+use crate::email_rate_limiting::EmailLimitsConfig;
 use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
-
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Config {
     pub scraping: ScrapingConfig,
     pub logging: LoggingConfig,
     pub output: OutputConfig,
+    pub email_limits: EmailLimitsConfig,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -88,6 +89,7 @@ impl Default for Config {
                 directory: "out".to_string(),
                 pretty_json: true,
             },
+            email_limits: EmailLimitsConfig::default(),
         }
     }
 }

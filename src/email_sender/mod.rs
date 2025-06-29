@@ -1,5 +1,5 @@
 // src/email_sender/mod.rs - COMPLETE REPLACEMENT
-use crate::database::DbPool;
+use crate::{cli::run_send_emails::EmailDebugConfig, database::DbPool};
 use chrono::Utc;
 use reqwest::Client;
 use rusqlite::params;
@@ -308,7 +308,6 @@ impl MailgunSender {
         }
     }
 
-    // Keep other existing methods...
     pub async fn send_batch(
         &self,
         recipients: &[EmailRecipient],
@@ -484,30 +483,6 @@ pub fn generate_specific_aspect(commits: Option<i32>, description: &Option<Strin
         )
     } else {
         "your technical expertise and innovative approach to development".to_string()
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct EmailDebugConfig {
-    pub enabled: bool,
-    pub debug_email: String,
-    pub skip_tracking: bool,
-}
-
-impl EmailDebugConfig {
-    pub fn from_env() -> Self {
-        Self {
-            enabled: std::env::var("EMAIL_DEBUG_MODE")
-                .unwrap_or_else(|_| "false".to_string())
-                .parse()
-                .unwrap_or(false),
-            debug_email: std::env::var("EMAIL_DEBUG_ADDRESS")
-                .unwrap_or_else(|_| "mohamed.bennekrouf@gmail.com".to_string()),
-            skip_tracking: std::env::var("EMAIL_DEBUG_SKIP_TRACKING")
-                .unwrap_or_else(|_| "true".to_string())
-                .parse()
-                .unwrap_or(true),
-        }
     }
 }
 

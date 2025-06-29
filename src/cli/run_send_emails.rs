@@ -1,13 +1,14 @@
 // src/cli/run_send_emails.rs - COMPLETE VERSION WITH INTEGRATED DEBUG MODE
 use crate::email_export::{EmailDatabase, EmailExportConfigBuilder, EmailProcessor};
+use crate::email_rate_limiting::{EmailRateLimiter, RateLimitStatus};
 use crate::email_sender::{
     extract_repo_name_from_url, generate_specific_aspect, EmailRecipient, EmailTemplate,
     MailgunConfig, MailgunSender,
 };
 use crate::models::CliApp;
+use chrono::Utc;
 use dialoguer::{theme::ColorfulTheme, Confirm, Input, Select};
-use tracing::{debug, error, info};
-
+use tracing::{debug, error};
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
 // Debug configuration struct
@@ -20,47 +21,118 @@ pub struct EmailDebugConfig {
 
 impl EmailDebugConfig {
     pub fn from_env() -> Self {
+        // Force reload .env to ensure we have latest values
+        let _ = dotenv::dotenv();
+        // More robust environment variable checking
+        let debug_enabled = std::env::var("EMAIL_DEBUG_MODE")
+            .map(|v| {
+                let val = v.to_lowercase();
+                val == "true" || val == "1" || val == "yes" || val == "on"
+            })
+            .unwrap_or(false);
+
+        let debug_email = std::env::var("EMAIL_DEBUG_ADDRESS")
+            .unwrap_or_else(|_| "mohamed.bennekrouf@gmail.com".to_string());
+
+        let skip_tracking = std::env::var("EMAIL_DEBUG_SKIP_TRACKING")
+            .map(|v| {
+                let val = v.to_lowercase();
+                val == "true" || val == "1" || val == "yes" || val == "on"
+            })
+            .unwrap_or(true);
+
+        // Log the configuration for debugging
+        if debug_enabled {
+            println!("🐛 DEBUG MODE CONFIGURATION:");
+            println!(
+                "   EMAIL_DEBUG_MODE = {}",
+                std::env::var("EMAIL_DEBUG_MODE").unwrap_or_default()
+            );
+            println!("   EMAIL_DEBUG_ADDRESS = {}", debug_email);
+            println!(
+                "   EMAIL_DEBUG_SKIP_TRACKING = {}",
+                std::env::var("EMAIL_DEBUG_SKIP_TRACKING").unwrap_or_default()
+            );
+        }
+
         Self {
-            enabled: std::env::var("EMAIL_DEBUG_MODE")
-                .unwrap_or_else(|_| "false".to_string())
-                .parse()
-                .unwrap_or(false),
-            debug_email: std::env::var("EMAIL_DEBUG_ADDRESS")
-                .unwrap_or_else(|_| "mohamed.bennekrouf@gmail.com".to_string()),
-            skip_tracking: std::env::var("EMAIL_DEBUG_SKIP_TRACKING")
-                .unwrap_or_else(|_| "true".to_string())
-                .parse()
-                .unwrap_or(true),
+            enabled: debug_enabled,
+            debug_email,
+            skip_tracking,
+        }
+    }
+
+    // Helper method to print current environment state
+    pub fn print_env_debug() {
+        println!("🔍 ENVIRONMENT VARIABLES DEBUG:");
+
+        match std::env::var("EMAIL_DEBUG_MODE") {
+            Ok(val) => println!("   EMAIL_DEBUG_MODE = '{}' (found)", val),
+            Err(_) => println!("   EMAIL_DEBUG_MODE = not set"),
+        }
+
+        match std::env::var("EMAIL_DEBUG_ADDRESS") {
+            Ok(val) => println!("   EMAIL_DEBUG_ADDRESS = '{}' (found)", val),
+            Err(_) => println!("   EMAIL_DEBUG_ADDRESS = not set"),
+        }
+
+        match std::env::var("EMAIL_DEBUG_SKIP_TRACKING") {
+            Ok(val) => println!("   EMAIL_DEBUG_SKIP_TRACKING = '{}' (found)", val),
+            Err(_) => println!("   EMAIL_DEBUG_SKIP_TRACKING = not set"),
+        }
+
+        // Also check if .env file exists
+        if std::path::Path::new(".env").exists() {
+            println!("   .env file: EXISTS");
+            if let Ok(contents) = std::fs::read_to_string(".env") {
+                println!("   .env contents (EMAIL_DEBUG related):");
+                for line in contents.lines() {
+                    if line.contains("EMAIL_DEBUG") || line.contains("DEBUG") {
+                        println!("     {}", line);
+                    }
+                }
+            }
+        } else {
+            println!("   .env file: NOT FOUND");
         }
     }
 }
 
 impl CliApp {
     pub async fn send_emails_via_mailgun(&self) -> Result<()> {
+        // Force reload .env at the start
+        let _ = dotenv::dotenv();
         println!("\n📧 Smart Email Campaign System");
         println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
-        // Load debug configuration
+        // Enhanced debug configuration loading with diagnostics
+        println!("🔍 Checking debug configuration...");
+        EmailDebugConfig::print_env_debug();
+
         let debug_config = EmailDebugConfig::from_env();
 
         if debug_config.enabled {
-            println!("🐛 DEBUG MODE ENABLED");
+            println!("\n🐛 ✅ DEBUG MODE IS ENABLED");
             println!(
-                "   📧 All emails will be sent to: {}",
+                "   📧 All emails will be redirected to: {}",
                 debug_config.debug_email
             );
             println!("   📊 Tracking disabled: {}", debug_config.skip_tracking);
-            println!("   💡 Set EMAIL_DEBUG_MODE=false to disable debug mode");
-            println!();
+            println!("   💡 To disable: set EMAIL_DEBUG_MODE=false or remove from .env");
+        } else {
+            println!("\n🚀 ✅ PRODUCTION MODE");
+            println!("   📧 Emails will be sent to actual recipients");
+            println!("   📊 Full tracking enabled");
+            println!("   💡 To enable debug: set EMAIL_DEBUG_MODE=true in .env");
         }
 
+        // Continue with the rest of your existing logic...
         let mailgun_config = MailgunConfig::from_env().map_err(|e| {
             println!("❌ Mailgun configuration error: {}", e);
             e
         })?;
 
         let sender = MailgunSender::new(mailgun_config);
-
         // Campaign type selection with debug options
         let mut campaign_options = vec![
             "🎯 First Contact Campaign (Investment Proposals)",
@@ -113,6 +185,21 @@ impl CliApp {
             3 => self.check_email_status(&sender).await?,
             _ => return Ok(()),
         }
+
+        Ok(())
+    }
+
+    pub async fn debug_environment_check(&self) -> Result<()> {
+        println!("\n🔍 Environment Debug Check");
+        println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+
+        EmailDebugConfig::print_env_debug();
+
+        let debug_config = EmailDebugConfig::from_env();
+        println!("\n📊 Parsed Configuration:");
+        println!("   Debug Mode: {}", debug_config.enabled);
+        println!("   Debug Email: {}", debug_config.debug_email);
+        println!("   Skip Tracking: {}", debug_config.skip_tracking);
 
         Ok(())
     }
@@ -233,19 +320,28 @@ impl CliApp {
     ) -> Result<()> {
         println!("\n🎯 First Contact Campaign");
         if debug_config.enabled {
-            println!(
-                "🐛 Running in DEBUG MODE - all emails go to {}",
-                debug_config.debug_email
-            );
+            println!("🐛 Running in DEBUG MODE - rate limits bypassed");
         }
         println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
+        // Check rate limits upfront in production mode
+        if !debug_config.enabled {
+            let rate_limiter =
+                EmailRateLimiter::new(self.config.email_limits.clone(), self.db_pool.clone());
+
+            let status = rate_limiter.check_rate_limits(100).await?; // Check for reasonable batch
+            rate_limiter.display_status(&status);
+
+            if !status.can_send {
+                println!("\n❌ Cannot start campaign due to rate limits");
+                return Ok(());
+            }
+        }
+
         let all_recipients = self.load_email_recipients_for_campaign(0).await?;
         let first_contact_candidates = if debug_config.enabled {
-            // In debug mode, include all recipients (ignore previous sends)
             all_recipients
         } else {
-            // Normal mode: filter out already contacted
             println!("🔍 Filtering candidates who haven't received first contact...");
             let mut candidates = Vec::new();
             for recipient in all_recipients {
@@ -270,14 +366,23 @@ impl CliApp {
         );
         self.show_campaign_preview(&first_contact_candidates);
 
-        let default_batch = if debug_config.enabled {
+        // Suggest safe batch size based on rate limits
+        let suggested_batch = if debug_config.enabled {
             3
         } else {
-            first_contact_candidates.len().min(50)
+            let rate_limiter =
+                EmailRateLimiter::new(self.config.email_limits.clone(), self.db_pool.clone());
+            let status = rate_limiter
+                .check_rate_limits(first_contact_candidates.len())
+                .await?;
+            status
+                .recommended_batch_size
+                .min(first_contact_candidates.len())
         };
+
         let batch_size: usize = Input::with_theme(&ColorfulTheme::default())
             .with_prompt("How many first contact emails to send?")
-            .default(default_batch)
+            .default(suggested_batch)
             .interact_text()?;
 
         let batch = first_contact_candidates
@@ -292,7 +397,10 @@ impl CliApp {
                 debug_config.debug_email
             )
         } else {
-            format!("Send {} investment proposal emails?", batch.len())
+            format!(
+                "Send {} investment proposal emails with rate limiting?",
+                batch.len()
+            )
         };
 
         if !Confirm::with_theme(&ColorfulTheme::default())
@@ -421,13 +529,82 @@ impl CliApp {
         campaign_type: &str,
         debug_config: &EmailDebugConfig,
     ) -> Result<()> {
+        // Create rate limiter
+        let rate_limiter =
+            EmailRateLimiter::new(self.config.email_limits.clone(), self.db_pool.clone());
+
+        // Check rate limits before starting
+        let status = rate_limiter.check_rate_limits(recipients.len()).await?;
+        rate_limiter.display_status(&status);
+
+        if !status.can_send && !debug_config.enabled {
+            println!("\n❌ Cannot send emails due to rate limits");
+            println!(
+                "💡 Try again later or reduce batch size to {}",
+                status.recommended_batch_size
+            );
+            return Ok(());
+        }
+
+        // In production mode, enforce limits
+        let actual_batch_size = if debug_config.enabled {
+            recipients.len() // Debug mode ignores limits
+        } else {
+            recipients.len().min(status.recommended_batch_size)
+        };
+
+        if actual_batch_size < recipients.len() {
+            println!(
+                "\n⚠️  Reducing batch size from {} to {} due to rate limits",
+                recipients.len(),
+                actual_batch_size
+            );
+
+            if !Confirm::with_theme(&ColorfulTheme::default())
+                .with_prompt(&format!(
+                    "Continue with reduced batch size of {}?",
+                    actual_batch_size
+                ))
+                .interact()?
+            {
+                return Ok(());
+            }
+        }
+
+        // Ask for confirmation if sending many emails
+        if actual_batch_size >= self.config.email_limits.require_confirmation_above
+            && !debug_config.enabled
+        {
+            println!("\n⚠️  You're about to send {} emails", actual_batch_size);
+            println!(
+                "🛡️  This is above the confirmation threshold of {}",
+                self.config.email_limits.require_confirmation_above
+            );
+
+            if !Confirm::with_theme(&ColorfulTheme::default())
+                .with_prompt("Are you sure you want to proceed?")
+                .default(false)
+                .interact()?
+            {
+                println!("❌ Campaign cancelled for safety");
+                return Ok(());
+            }
+        }
+
+        let final_batch = &recipients[..actual_batch_size];
         let mode_str = if debug_config.enabled { "DEBUG " } else { "" };
-        println!("\n🚀 Sending {} {}emails...", recipients.len(), mode_str);
+
+        println!("\n🚀 Starting {}email campaign...", mode_str);
+        println!(
+            "📧 Sending {} emails with smart rate limiting",
+            final_batch.len()
+        );
 
         let mut successful = 0;
         let mut failed = 0;
+        let mut last_send_time = Utc::now();
 
-        for (i, recipient) in recipients.iter().enumerate() {
+        for (i, recipient) in final_batch.iter().enumerate() {
             let display_email = if debug_config.enabled {
                 format!(
                     "{} (original: {})",
@@ -440,7 +617,7 @@ impl CliApp {
             println!(
                 "[{}/{}] Sending to {} ({})",
                 i + 1,
-                recipients.len(),
+                final_batch.len(),
                 recipient.recipient_name,
                 display_email
             );
@@ -465,13 +642,30 @@ impl CliApp {
                 }
             }
 
-            // Rate limiting (shorter delay in debug mode)
-            if i < recipients.len() - 1 {
-                let delay = if debug_config.enabled { 1000 } else { 3000 };
-                tokio::time::sleep(tokio::time::Duration::from_millis(delay)).await;
+            // Smart rate limiting with adaptive delays
+            if i < final_batch.len() - 1 {
+                let optimal_delay = if debug_config.enabled {
+                    1000 // Fast in debug mode
+                } else {
+                    rate_limiter.get_optimal_delay().await
+                };
+
+                // Show progress every 10 emails
+                if (i + 1) % 10 == 0 {
+                    let elapsed = Utc::now().signed_duration_since(last_send_time);
+                    let rate = 10.0 / elapsed.num_seconds() as f64 * 60.0; // emails per minute
+                    println!(
+                        "   📊 Rate: {:.1} emails/min | Next delay: {}ms",
+                        rate, optimal_delay
+                    );
+                    last_send_time = Utc::now();
+                }
+
+                tokio::time::sleep(tokio::time::Duration::from_millis(optimal_delay)).await;
             }
         }
 
+        // Results summary with deliverability tips
         println!(
             "\n🎉 {}Campaign Complete!",
             if debug_config.enabled { "Debug " } else { "" }
@@ -479,8 +673,38 @@ impl CliApp {
         println!("✅ Successful: {}", successful);
         println!("❌ Failed: {}", failed);
 
+        if successful > 0 {
+            let success_rate = (successful as f64 / final_batch.len() as f64) * 100.0;
+            println!("📊 Success rate: {:.1}%", success_rate);
+
+            if success_rate < 95.0 {
+                println!("⚠️  Success rate is below 95%. Check your email list quality.");
+            }
+        }
+
         if debug_config.enabled && debug_config.skip_tracking {
-            println!("💡 No tracking recorded (debug mode with skip_tracking=true)");
+            println!("💡 No tracking recorded (debug mode)");
+        } else {
+            // Update rate limiter status
+            let final_status = rate_limiter.check_rate_limits(0).await?;
+            println!("\n📈 Updated limits:");
+            println!(
+                "   Daily: {}/{} remaining",
+                final_status.remaining_today, final_status.daily_limit
+            );
+            println!(
+                "   Hourly: {}/{} used",
+                final_status.hourly_sent, self.config.email_limits.emails_per_hour
+            );
+        }
+
+        // Deliverability advice
+        if !debug_config.enabled && successful > 50 {
+            println!("\n💡 Deliverability Tips:");
+            println!("   📊 Monitor your Mailgun dashboard for bounces/complaints");
+            println!("   📧 Keep bounce rate < 5% and complaint rate < 0.1%");
+            println!("   ⏰ Wait 24-48 hours before next large campaign");
+            println!("   🎯 Clean your email list regularly");
         }
 
         Ok(())

@@ -25,6 +25,7 @@ impl CliApp {
                 MenuAction::ShowStats,
                 MenuAction::ShowPhase2Progress, // NEW: Progress trackin
                 MenuAction::ExportEmails,
+                MenuAction::DebugEnvironmentCheck,
                 MenuAction::Exit,
             ];
 
@@ -81,6 +82,12 @@ impl CliApp {
                 MenuAction::ExportEmails => {
                     if let Err(e) = self.run_export_emails().await {
                         error!("Email export failed: {}", e);
+                    }
+                }
+                MenuAction::DebugEnvironmentCheck => {
+                    // ADD THIS CASE
+                    if let Err(e) = self.debug_environment_check().await {
+                        error!("Debug environment check failed: {}", e);
                     }
                 }
                 MenuAction::Exit => {
