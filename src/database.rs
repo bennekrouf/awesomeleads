@@ -1057,7 +1057,7 @@ pub async fn get_non_github_project_by_url(
          FROM non_github_projects WHERE url = ?",
     )?;
 
-    let project_iter = stmt.query_map([url], |row| {
+    let mut project_iter = stmt.query_map([url], |row| {
         let get_optional_string = |idx: usize| -> Option<String> {
             match row.get::<_, Option<String>>(idx) {
                 Ok(Some(s)) if !s.is_empty() => Some(s),
