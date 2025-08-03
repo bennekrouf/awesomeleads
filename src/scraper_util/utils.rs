@@ -26,28 +26,4 @@ impl UrlUtils {
             "Invalid GitHub URL format. Expected: https://github.com/owner/repo".into()
         })
     }
-
-    // pub fn is_github_url(&self, url: &str) -> bool {
-    //     self.github_url_regex.is_match(url)
-    // }
-
-    // pub fn clean_url(&self, url: &str) -> String {
-    //     // Remove common URL fragments and parameters that don't affect the resource
-    //     url.split('#')
-    //         .next()
-    //         .unwrap_or(url)
-    //         .split('?')
-    //         .next()
-    //         .unwrap_or(url)
-    //         .trim_end_matches('/')
-    //         .to_string()
-    // }
-
-    // pub fn extract_domain(&self, url: &str) -> Option<String> {
-    //     if let Ok(parsed) = url::Url::parse(url) {
-    //         parsed.host_str().map(|h| h.to_string())
-    //     } else {
-    //         None
-    //     }
-    // }
 }

@@ -22,14 +22,6 @@ pub struct ProjectUrl {
     pub total_commits: Option<i32>,
 }
 
-// #[derive(Debug, Clone)]
-// pub struct DiscoveredSource {
-//     pub owner: String,
-//     pub repo: String,
-//     pub description: String,
-//     pub url: String,
-// }
-
 // Helper structs and methods
 #[derive(Debug)]
 pub struct ProjectFilter {
@@ -52,13 +44,6 @@ pub struct CliApp {
     pub scraper: AwesomeScraper,
     pub sources: Vec<Box<dyn AwesomeSource>>,
 }
-
-// #[derive(Debug, Clone)]
-// pub struct TempAwesomeSource {
-//     pub owner: String,
-//     pub repo: String,
-//     pub source_attribution: String, // Original meta-source + discovered source
-// }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContributorInfo {

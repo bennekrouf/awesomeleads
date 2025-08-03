@@ -34,7 +34,6 @@ output:
 email_limits:
   # Daily limits for different account ages (days since first email sent)
   new_account: 300       # First 7 days
-  warming_up: 300       # Days 8-30
   established: 500       # Days 31-90
   mature: 1000          # 90+ days
   
@@ -51,7 +50,3 @@ email_limits:
   # Safety settings
   max_emails_per_campaign: 400   # Hard limit per campaign run
   require_confirmation_above: 50 # Ask for confirmation if sending more than 50
-  
-  # Warm-up mode for new domains
-  warm_up_mode: true
-  warm_up_daily_limits: [20, 30, 50, 100, 200]  # Day 1, 2, 3, 4, 5...

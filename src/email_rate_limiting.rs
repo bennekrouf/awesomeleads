@@ -7,7 +7,6 @@ use serde::{Deserialize, Serialize};
 pub struct EmailLimitsConfig {
     // Daily limits based on account age
     pub new_account: usize,
-    pub warming_up: usize,
     pub established: usize,
     pub mature: usize,
 
@@ -24,17 +23,12 @@ pub struct EmailLimitsConfig {
     // Safety
     pub max_emails_per_campaign: usize,
     pub require_confirmation_above: usize,
-
-    // Warm-up mode
-    pub warm_up_mode: bool,
-    pub warm_up_daily_limits: Vec<usize>,
 }
 
 impl Default for EmailLimitsConfig {
     fn default() -> Self {
         Self {
             new_account: 50,
-            warming_up: 200,
             established: 500,
             mature: 1000,
             emails_per_hour: 100,
@@ -45,8 +39,6 @@ impl Default for EmailLimitsConfig {
             max_ramp_daily_limit: 2000,
             max_emails_per_campaign: 100,
             require_confirmation_above: 50,
-            warm_up_mode: false,
-            warm_up_daily_limits: vec![10, 20, 50, 100, 200, 300, 500],
         }
     }
 }
@@ -98,13 +90,6 @@ impl EmailRateLimiter {
                 .min(self.config.max_ramp_daily_limit)
         } else {
             base_daily_limit
-        };
-
-        // Apply warm-up mode if enabled
-        let daily_limit = if self.config.warm_up_mode {
-            self.apply_warm_up_limit(daily_limit, account_age_days)
-        } else {
-            daily_limit
         };
 
         let remaining_today = daily_limit.saturating_sub(daily_sent);
@@ -230,8 +215,7 @@ impl EmailRateLimiter {
     fn get_base_daily_limit(&self, account_age_days: i64) -> usize {
         match account_age_days {
             0..=7 => self.config.new_account,
-            8..=30 => self.config.warming_up,
-            31..=90 => self.config.established,
+            8..=90 => self.config.established,
             _ => self.config.mature,
         }
     }
@@ -246,21 +230,6 @@ impl EmailRateLimiter {
             1.0 + (self.config.ramp_percentage_increase / 100.0 * (weeks_active - 1.0));
 
         (base_limit as f64 * ramp_multiplier) as usize
-    }
-
-    fn apply_warm_up_limit(&self, base_limit: usize, account_age_days: i64) -> usize {
-        if account_age_days >= self.config.warm_up_daily_limits.len() as i64 {
-            return base_limit;
-        }
-
-        let warm_up_limit = self
-            .config
-            .warm_up_daily_limits
-            .get(account_age_days as usize)
-            .copied()
-            .unwrap_or(base_limit);
-
-        warm_up_limit.min(base_limit)
     }
 
     fn evaluate_limits(
@@ -343,8 +312,7 @@ impl EmailRateLimiter {
         // Account status
         let account_status = match status.account_age_days {
             0..=7 => "🟡 New Account (Limited)",
-            8..=30 => "🟠 Warming Up",
-            31..=90 => "🟢 Established",
+            8..=90 => "🟢 Established",
             _ => "🔵 Mature Account",
         };
         println!(
