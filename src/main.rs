@@ -63,7 +63,7 @@ async fn main() -> AppResult<()> {
         .with_env_filter(
             EnvFilter::from_default_env().add_directive("lead_scraper=debug".parse().unwrap()),
         )
-        .with_max_level(tracing::Level::DEBUG)
+        .with_max_level(tracing::Level::INFO)
         .with_target(true)
         .with_line_number(true)
         .init();

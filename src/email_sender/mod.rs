@@ -46,8 +46,8 @@ pub enum EmailTemplate {
 impl EmailTemplate {
     pub fn mailgun_name(&self) -> &'static str {
         match self {
-            EmailTemplate::InvestmentProposal => "first message", // Your current template
-            EmailTemplate::FollowUp => "follow-up message",
+            EmailTemplate::InvestmentProposal => "second_round",
+            EmailTemplate::FollowUp => "follo-up",
         }
     }
 
@@ -418,8 +418,8 @@ pub fn generate_specific_aspect(commits: Option<i32>, description: &Option<Strin
     if desc.contains("ai") || desc.contains("machine learning") || desc.contains("neural") {
         if commits > 50 {
             format!(
-                "your innovative AI work and {} commits showing deep technical expertise",
-                commits
+                "your innovative AI work and commits showing deep technical expertise",
+                // commits
             )
         } else {
             "your cutting-edge artificial intelligence development".to_string()
@@ -430,56 +430,58 @@ pub fn generate_specific_aspect(commits: Option<i32>, description: &Option<Strin
         || desc.contains("defi")
     {
         if commits > 50 {
-            format!("your blockchain development skills and {} contributions to the decentralized ecosystem", commits)
+            format!("your blockchain development skills and contributions to the decentralized ecosystem")
         } else {
             "your pioneering work in blockchain technology".to_string()
         }
     } else if desc.contains("fintech") || desc.contains("payment") || desc.contains("banking") {
         if commits > 50 {
             format!(
-                "your fintech expertise and {} commits demonstrating payment innovation",
-                commits
+                "your fintech expertise and commits demonstrating payment innovation",
+                // commits
             )
         } else {
             "your innovative approach to financial technology".to_string()
         }
     } else if desc.contains("rust") {
         if commits > 50 {
-            format!("your Rust development expertise and {} commits showing systems programming mastery", commits)
+            format!(
+                "your Rust development expertise and commits showing systems programming mastery"
+            )
         } else {
             "your systems programming expertise in Rust".to_string()
         }
     } else if desc.contains("javascript") || desc.contains("react") || desc.contains("node") {
         if commits > 50 {
             format!(
-                "your JavaScript development skills and {} commits in modern web technologies",
-                commits
+                "your JavaScript development skills and commits in modern web technologies",
+                // commits
             )
         } else {
             "your expertise in modern web development".to_string()
         }
     } else if desc.contains("python") {
         if commits > 50 {
-            format!("your Python development work and {} commits demonstrating versatile programming skills", commits)
+            format!("your Python development work and commits demonstrating versatile programming skills")
         } else {
             "your Python development expertise".to_string()
         }
     } else if commits > 200 {
-        format!("your exceptionally prolific development work with {} commits showing extraordinary dedication", commits)
+        format!("your exceptionally prolific development work showing extraordinary dedication")
     } else if commits > 100 {
         format!(
-            "your prolific development work with {} commits showing exceptional dedication",
-            commits
+            "your prolific development work showing exceptional dedication",
+            // commits
         )
     } else if commits > 20 {
         format!(
-            "your consistent contributions with {} commits demonstrating strong technical skills",
-            commits
+            "your consistent contributions demonstrating strong technical skills",
+            // commits
         )
     } else if commits > 5 {
         format!(
-            "your meaningful contributions with {} commits showing genuine technical involvement",
-            commits
+            "your meaningful contributions showing genuine technical involvement",
+            // commits
         )
     } else {
         "your technical expertise and innovative approach to development".to_string()
@@ -642,6 +644,7 @@ impl MailgunSender {
         form_data.insert("o:tracking", "yes".to_string());
         form_data.insert("o:tracking-clicks", "yes".to_string());
         form_data.insert("o:tracking-opens", "yes".to_string());
+        form_data.insert("o:tracking-unsubscribes", "no".to_string());
 
         // Add custom tags for analytics (with debug prefix if needed)
         let tag_prefix = if is_debug { "debug-" } else { "" };

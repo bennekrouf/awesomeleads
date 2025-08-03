@@ -44,77 +44,57 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Exploring Your Projects with FabInvest</title>
+  <title>Quick note from FabInvest</title>
 </head>
 
-<body
-  style="margin: 0; padding: 0; font-family: Arial, Helvetica, sans-serif; color: #333333; background-color: #f4f4f4;">
+<body style="margin: 0; padding: 20px; font-family: Arial, sans-serif; color: #333; background-color: #f9f9f9;">
 
   {{#debug_mode}}
   <div
     style="background-color: #ff6b6b; color: white; padding: 10px; margin-bottom: 20px; text-align: center; font-weight: bold;">
-    🐛 DEBUG MODE - This email was originally intended for: {{debug_original_email}}
+    🐛 DEBUG MODE - Originally for: {{debug_original_email}}
   </div>
   {{/debug_mode}}
 
-  <table width="100%" cellpadding="0" cellspacing="0"
-    style="max-width: 600px; margin: 20px auto; background-color: #ffffff; border: 1px solid #e0e0e0;">
-    <tr>
-      <td style="padding: 20px; text-align: center; background-color: #004aad; color: #ffffff;">
-        <h1 style="margin: 0; font-size: 24px;">FabInvest</h1>
-        <p style="margin: 5px 0 0; font-size: 14px;">Private Equity for High-Growth Tech Ventures</p>
-      </td>
-    </tr>
-    <tr>
-      <td style="padding: 20px;">
-        <p style="font-size: 16px; line-height: 1.5;">Dear {{recipient_name}},</p>
-        <p style="font-size: 16px; line-height: 1.5;">
-          I’m Gilles from <a href="https://fabinvest.com" style="color: #004aad; text-decoration: none;">FabInvest</a>,
-          a private equity firm focused on transformative tech ventures. We noticed your contributions to
-          <strong>{{repo_name}}</strong> on GitHub and are impressed by {{specific_aspect}}. Your expertise caught our
-          attention, and we’d love to explore the projects you’re working on.
-        </p>
-        <p style="font-size: 16px; line-height: 1.5;">
-          At FabInvest, we provide venture capital and growth capital to innovative private companies, pairing funding
-          with strategic support to drive long-term success. Are you working on any projects—open-source or
-          otherwise—that could benefit from investment? Could you share a quick update on your current work or
-          fundraising plans?
-        </p>
-        <p style="font-size: 16px; line-height: 1.5;">
-          Let’s connect for a 15-minute call to discuss potential collaboration. Book a time here: <a
-            href="{{calendar_link}}" style="color: #004aad; text-decoration: none;">Schedule a Call</a>, or reply with
-          your availability. I’ve attached a one-pager about FabInvest’s private equity approach for more details.
-        </p>
-        <p style="font-size: 16px; line-height: 1.5;">
-          Thank you for your impactful work, and I’m excited about the possibility of partnering!
-        </p>
-        <p style="font-size: 16px; line-height: 1.5;">
-          Best regards,<br>
-          Gilles Samyn<br>
-          FabInvest<br>
-          <a href="https://fabinvest.com" style="color: #004aad; text-decoration: none;">fabinvest.com</a><br>
-          {{contact_email}} | {{contact_phone}}
-        </p>
-        <p style="font-size: 14px; line-height: 1.5; font-style: italic;">
-          P.S. If a call isn’t convenient, just reply with a brief project update to start the conversation!
-        </p>
-      </td>
-    </tr>
-    <tr>
-      <td style="padding: 20px; text-align: center; background-color: #f4f4f4; font-size: 12px; color: #666666;">
-        <p style="margin: 0;">
-          FabInvest,
-          Fabric Invest Limited
-          73 Cornhill, London, United Kingdom, EC3V 3QQ<br>
-          You are receiving this email because of your contributions to {{repo_name}}. Not interested? <a
-            href="%unsubscribe%" style="color: #004aad; text-decoration: none;">Unsubscribe</a>
-        </p>
-        <p style="margin: 10px 0 0;">
-          <a href="[Your Privacy Policy URL]" style="color: #004aad; text-decoration: none;">Privacy Policy</a>
-        </p>
-      </td>
-    </tr>
-  </table>
+  <div
+    style="max-width: 500px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+
+    <div style="border-left: 4px solid #004aad; padding-left: 15px; margin-bottom: 25px;">
+      <h2 style="margin: 0; color: #004aad; font-size: 18px;">FabInvest</h2>
+      <small style="color: #666;">Private Equity</small>
+    </div>
+
+    <p style="font-size: 15px; line-height: 1.6; margin-bottom: 15px;">
+      Hi {{recipient_name}},
+    </p>
+
+    <p style="font-size: 15px; line-height: 1.6; margin-bottom: 15px;">
+      Saw your work on <strong>{{repo_name}}</strong> – {{specific_aspect}} really stood out. We're always looking for
+      interesting projects to potentially back.
+    </p>
+
+    <p style="font-size: 15px; line-height: 1.6; margin-bottom: 15px;">
+      Working on anything that could use funding? Would love to hear what you're building.
+    </p>
+
+    <p style="font-size: 15px; line-height: 1.6; margin-bottom: 25px;">
+      Just reply if you're interested – no pressure.
+    </p>
+
+    <p style="font-size: 14px; line-height: 1.6; color: #666;">
+      Gilles<br>
+      FabInvest | {{contact_email}}
+    </p>
+
+    <hr style="border: none; border-top: 1px solid #eee; margin: 25px 0;">
+
+    <p style="font-size: 11px; color: #999; text-align: center; margin: 0;">
+      FabInvest, 73 Cornhill, London EC3V 3QQ<br>
+      <a href="%unsubscribe%" style="color: #004aad;">Unsubscribe</a>
+    </p>
+
+  </div>
+
 </body>
 
 </html>
