@@ -267,8 +267,8 @@ impl EmailRateLimiter {
         &self,
         requested: usize,
         remaining_daily: usize,
-        hourly_sent: usize,
-        minute_sent: usize,
+        _hourly_sent: usize,
+        _minute_sent: usize,
     ) -> (bool, String) {
         // Check daily limit
         if requested > remaining_daily {
