@@ -71,7 +71,6 @@ pub struct RawEmailData {
 pub struct ExportConfig {
     pub title: String,
     pub sql_filter: String,
-    pub min_engagement_score: u8,
 }
 
 #[derive(Debug, Clone)]

@@ -16,27 +16,22 @@ impl EmailExportConfigBuilder {
             0 => ExportConfig {
                 title: "All Valid Emails".to_string(),
                 sql_filter: "WHERE (p.email IS NOT NULL AND p.email != '' AND p.email NOT LIKE '%noreply%')".to_string(),
-                min_engagement_score: 10,
             },
             1 => ExportConfig {
                 title: "High-Value Projects".to_string(),
                 sql_filter: "WHERE (p.email IS NOT NULL AND p.email != '' AND p.email NOT LIKE '%noreply%') AND (p.repository_created > '2022-01-01' OR p.first_commit_date > '2022-01-01') AND p.total_commits > 5".to_string(),
-                min_engagement_score: 50,
             },
             2 => ExportConfig {
                 title: "Startup Founders".to_string(),
                 sql_filter: "WHERE (p.email IS NOT NULL AND p.email != '' AND p.email NOT LIKE '%noreply%') AND p.total_commits > 20 AND p.repository_created > '2020-01-01'".to_string(),
-                min_engagement_score: 70,
             },
             3 => ExportConfig {
                 title: "Enterprise Contacts".to_string(),
                 sql_filter: "WHERE (p.email IS NOT NULL AND p.email != '' AND p.email NOT LIKE '%noreply%') AND p.total_commits > 100".to_string(),
-                min_engagement_score: 60,
             },
             4 => ExportConfig {
                 title: "Web3/AI/Fintech Focus".to_string(),
                 sql_filter: "WHERE (p.email IS NOT NULL AND p.email != '' AND p.email NOT LIKE '%noreply%') AND (LOWER(p.description) LIKE '%blockchain%' OR LOWER(p.description) LIKE '%ai%' OR LOWER(p.description) LIKE '%ml%' OR LOWER(p.description) LIKE '%fintech%' OR LOWER(p.description) LIKE '%defi%' OR LOWER(p.url) LIKE '%web3%')".to_string(),
-                min_engagement_score: 40,
             },
             5 => {
                 let custom: String = Input::with_theme(&ColorfulTheme::default())
@@ -47,13 +42,11 @@ impl EmailExportConfigBuilder {
                 ExportConfig {
                     title: "Custom Export".to_string(),
                     sql_filter: custom,
-                    min_engagement_score: 30,
                 }
             },
             _ => ExportConfig {
                 title: "Default Export".to_string(),
                 sql_filter: "WHERE (p.email IS NOT NULL AND p.email != '' AND p.email NOT LIKE '%noreply%')".to_string(),
-                min_engagement_score: 30,
             },
         };
 

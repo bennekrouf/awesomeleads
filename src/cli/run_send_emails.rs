@@ -181,7 +181,7 @@ impl CliApp {
                     .await?
             }
             1 => self.run_followup_campaign(&sender, &debug_config).await?,
-            2 => self.show_email_statistics(&sender).await?,
+            2 => self.show_email_statistics().await?,
             3 => self.check_email_status(&sender).await?,
             _ => return Ok(()),
         }
@@ -910,7 +910,7 @@ impl CliApp {
         Ok(())
     }
 
-    async fn show_email_statistics(&self, sender: &MailgunSender) -> Result<()> {
+    async fn show_email_statistics(&self) -> Result<()> {
         println!("\n📊 Email Campaign Statistics");
         println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 

@@ -1,4 +1,3 @@
-use crate::models::Phase2Progress;
 use chrono::{DateTime, Utc};
 use mobc::{Manager, Pool};
 use rusqlite::{params, Connection, Result as SqliteResult};
@@ -626,87 +625,6 @@ pub async fn get_database_stats(
 }
 
 // Add logging to other functions too
-pub async fn get_phase2_progress_summary(
-    pool: &DbPool,
-) -> Result<Phase2Progress, Box<dyn std::error::Error + Send + Sync>> {
-    debug!("📊 get_phase2_progress_summary() - Starting...");
-
-    let conn = match pool.get().await {
-        Ok(c) => {
-            debug!("✅ Database connection acquired from pool");
-            c
-        }
-        Err(e) => {
-            error!("💥 Failed to get connection from pool: {}", e);
-            return Err(Box::new(e));
-        }
-    };
-
-    debug!("📊 Counting total projects...");
-    let total: i64 = match conn.query_row("SELECT COUNT(*) FROM projects", [], |row| row.get(0)) {
-        Ok(count) => {
-            debug!("✅ Total projects: {}", count);
-            count
-        }
-        Err(e) => {
-            log_rusqlite_error("total projects count", &e);
-            return Err(Box::new(e));
-        }
-    };
-
-    debug!("📊 Counting complete projects...");
-    let complete: i64 = match conn.query_row(
-        "SELECT COUNT(*) FROM projects WHERE email IS NOT NULL AND email != '' AND first_commit_date IS NOT NULL AND repository_created IS NOT NULL", 
-        [], 
-        |row| row.get(0)
-    ) {
-        Ok(count) => {
-            debug!("✅ Complete projects: {}", count);
-            count
-        }
-        Err(e) => {
-            log_rusqlite_error("complete projects count", &e);
-            return Err(Box::new(e));
-        }
-    };
-
-    debug!("📊 Counting partial projects...");
-    let partial: i64 = match conn.query_row(
-        "SELECT COUNT(*) FROM projects WHERE ((email IS NOT NULL AND email != '') OR (first_commit_date IS NOT NULL) OR (repository_created IS NOT NULL)) AND NOT (email IS NOT NULL AND email != '' AND first_commit_date IS NOT NULL AND repository_created IS NOT NULL)", 
-        [], 
-        |row| row.get(0)
-    ) {
-        Ok(count) => {
-            debug!("✅ Partial projects: {}", count);
-            count
-        }
-        Err(e) => {
-            log_rusqlite_error("partial projects count", &e);
-            return Err(Box::new(e));
-        }
-    };
-
-    let untouched = total - complete - partial;
-    let completion_rate = if total > 0 {
-        (complete as f64 / total as f64) * 100.0
-    } else {
-        0.0
-    };
-
-    debug!("✅ get_phase2_progress_summary() completed: total={}, complete={}, partial={}, untouched={}, rate={:.1}%", 
-           total, complete, partial, untouched, completion_rate);
-
-    Ok(Phase2Progress {
-        complete,
-        partial,
-        untouched,
-        total,
-        completion_rate,
-    })
-}
-
-// ... rest of the functions with minimal changes, just add the structs at the end
-
 #[derive(Debug, Serialize)]
 pub struct DatabaseStats {
     pub total_github_projects: i64,
