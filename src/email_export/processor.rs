@@ -1,6 +1,6 @@
 // src/email_export/processor.rs
+use super::types::{CompanySize, DomainCategory, EmailExport, ExportConfig, RawEmailData};
 use chrono::Utc;
-use super::types::{DomainCategory, CompanySize, EmailExport, RawEmailData, ExportConfig};
 
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
@@ -47,12 +47,12 @@ impl EmailProcessor {
             // Fallback: try to extract name from owner field
             raw.owner.clone()
         });
-        
+
         let first_name = full_name.as_ref().map(|name| {
             // Extract first name (everything before first space)
             name.split_whitespace().next().unwrap_or(name).to_string()
         });
-        
+
         (full_name, first_name)
     }
 
@@ -148,10 +148,18 @@ impl EmailProcessor {
 
         // Project quality indicators (0-40 points)
         if let Some(desc) = &raw.description {
-            if desc.len() > 50 { score += 10; } // Has description
-            if desc.to_lowercase().contains("api") { score += 10; }
-            if desc.to_lowercase().contains("open source") { score += 10; }
-            if desc.to_lowercase().contains("production") { score += 10; }
+            if desc.len() > 50 {
+                score += 10;
+            } // Has description
+            if desc.to_lowercase().contains("api") {
+                score += 10;
+            }
+            if desc.to_lowercase().contains("open source") {
+                score += 10;
+            }
+            if desc.to_lowercase().contains("production") {
+                score += 10;
+            }
         }
 
         score.min(100)

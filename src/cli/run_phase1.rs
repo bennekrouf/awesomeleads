@@ -101,4 +101,3 @@ impl CliApp {
         Ok(())
     }
 }
-

@@ -1,8 +1,8 @@
 // src/email_export/exporter.rs
+use super::types::{EmailExport, ExportStats};
 use chrono::Utc;
 use std::collections::HashMap;
 use std::io::Write;
-use super::types::{EmailExport, ExportStats};
 
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
@@ -117,7 +117,10 @@ impl EmailExporter {
             );
         }
 
-        println!("\n⭐ Average Engagement Score: {:.1}", stats.average_engagement);
+        println!(
+            "\n⭐ Average Engagement Score: {:.1}",
+            stats.average_engagement
+        );
     }
 
     pub fn generate_filename(&self) -> String {
