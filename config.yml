@@ -33,19 +33,19 @@ output:
 
 email_limits:
   # Daily limits for different account ages (days since first email sent)
-  new_account: 300       # First 7 days
+  new_account: 400       # First 7 days
   established: 500       # Days 31-90
   mature: 1000          # 90+ days
   
   # Rate limiting
   emails_per_hour: 400
-  emails_per_minute: 300
+  emails_per_minute: 400
   delay_between_emails_ms: 3000  # 3 seconds minimum
   
   # Ramp up settings
   enable_auto_ramp: true
   ramp_percentage_increase: 30   # Increase limit by 20% each week
-  max_ramp_daily_limit: 300
+  max_ramp_daily_limit: 400
   
   # Safety settings
   max_emails_per_campaign: 400   # Hard limit per campaign run

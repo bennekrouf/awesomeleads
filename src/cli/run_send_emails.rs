@@ -100,16 +100,35 @@ impl EmailDebugConfig {
 
 impl CliApp {
     pub async fn send_emails_via_mailgun(&self) -> Result<()> {
-        // Force reload .env at the start
         let _ = dotenv::dotenv();
+
+        // Auto-load configurations
+        let debug_config = EmailDebugConfig::from_env();
+        let mailgun_config = MailgunConfig::from_env()?;
+        let sender = MailgunSender::new(mailgun_config);
+
+        // Check if automation mode is requested
+        if std::env::var("AUTOMATION_MODE").unwrap_or_default() == "true" {
+            return self
+                .run_automated_daily_campaign(&sender, &debug_config)
+                .await;
+        }
+
+        // Otherwise show the existing menu for manual operation
+        self.show_campaign_menu(&sender, &debug_config).await
+    }
+
+    async fn show_campaign_menu(
+        &self,
+        sender: &MailgunSender,
+        debug_config: &EmailDebugConfig,
+    ) -> Result<()> {
         println!("\n📧 Smart Email Campaign System");
         println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
         // Enhanced debug configuration loading with diagnostics
         println!("🔍 Checking debug configuration...");
         EmailDebugConfig::print_env_debug();
-
-        let debug_config = EmailDebugConfig::from_env();
 
         if debug_config.enabled {
             println!("\n🐛 ✅ DEBUG MODE IS ENABLED");
@@ -126,13 +145,6 @@ impl CliApp {
             println!("   💡 To enable debug: set EMAIL_DEBUG_MODE=true in .env");
         }
 
-        // Continue with the rest of your existing logic...
-        let mailgun_config = MailgunConfig::from_env().map_err(|e| {
-            println!("❌ Mailgun configuration error: {}", e);
-            e
-        })?;
-
-        let sender = MailgunSender::new(mailgun_config);
         // Campaign type selection with debug options
         let mut campaign_options = vec![
             "🎯 First Contact Campaign (Investment Proposals)",
@@ -175,6 +187,7 @@ impl CliApp {
         } else {
             selection
         };
+
         match adjusted_selection {
             0 => {
                 self.run_first_contact_campaign(&sender, &debug_config)
@@ -187,6 +200,15 @@ impl CliApp {
         }
 
         Ok(())
+    }
+
+    async fn run_automated_daily_campaign(
+        &self,
+        sender: &MailgunSender,
+        debug_config: &EmailDebugConfig,
+    ) -> Result<()> {
+        println!("🤖 Running in automation mode");
+        self.run_first_contact_campaign(sender, debug_config).await
     }
 
     pub async fn debug_environment_check(&self) -> Result<()> {
@@ -313,111 +335,97 @@ impl CliApp {
         .await
     }
 
-    async fn run_first_contact_campaign(
+    pub async fn run_first_contact_campaign(
         &self,
         sender: &MailgunSender,
         debug_config: &EmailDebugConfig,
     ) -> Result<()> {
-        println!("\n🎯 First Contact Campaign");
-        if debug_config.enabled {
-            println!("🐛 Running in DEBUG MODE - rate limits bypassed");
-        }
+        println!("\n🎯 Automated Daily Investment Campaign");
         println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
-        // Check rate limits upfront in production mode
-        if !debug_config.enabled {
-            let rate_limiter =
-                EmailRateLimiter::new(self.config.email_limits.clone(), self.db_pool.clone());
+        // Load and filter candidates automatically
+        let candidates = self
+            .get_daily_campaign_candidates(sender, debug_config)
+            .await?;
 
-            let status = rate_limiter.check_rate_limits(100).await?; // Check for reasonable batch
-            rate_limiter.display_status(&status);
-
-            if !status.can_send {
-                println!("\n❌ Cannot start campaign due to rate limits");
-                return Ok(());
-            }
-        }
-
-        let all_recipients = self.load_email_recipients_for_campaign(0).await?;
-        let first_contact_candidates = if debug_config.enabled {
-            all_recipients
-        } else {
-            println!("🔍 Filtering candidates who haven't received first contact...");
-            let mut candidates = Vec::new();
-            for recipient in all_recipients {
-                let status = sender
-                    .check_email_status(&self.db_pool, &recipient.email)
-                    .await?;
-                if status.can_send_first {
-                    candidates.push(recipient);
-                }
-            }
-            candidates
-        };
-
-        if first_contact_candidates.is_empty() {
-            println!("✅ All eligible recipients have already received first contact emails!");
+        if candidates.is_empty() {
+            println!("✅ No new candidates for today's campaign");
             return Ok(());
         }
 
-        println!(
-            "📋 Found {} candidates for first contact",
-            first_contact_candidates.len()
-        );
-        self.show_campaign_preview(&first_contact_candidates);
+        // Auto-determine batch size
+        let batch_size = self
+            .get_optimal_batch_size(&candidates, debug_config)
+            .await?;
+        let batch = candidates.into_iter().take(batch_size).collect::<Vec<_>>();
 
-        // Suggest safe batch size based on rate limits
-        let suggested_batch = if debug_config.enabled {
-            3
-        } else {
-            let rate_limiter =
-                EmailRateLimiter::new(self.config.email_limits.clone(), self.db_pool.clone());
-            let status = rate_limiter
-                .check_rate_limits(first_contact_candidates.len())
-                .await?;
-            status
-                .recommended_batch_size
-                .min(first_contact_candidates.len())
-        };
+        println!("🚀 Sending {} investment proposal emails", batch.len());
 
-        let batch_size: usize = Input::with_theme(&ColorfulTheme::default())
-            .with_prompt("How many first contact emails to send?")
-            .default(suggested_batch)
-            .interact_text()?;
-
-        let batch = first_contact_candidates
-            .into_iter()
-            .take(batch_size)
-            .collect::<Vec<_>>();
-
-        let prompt = if debug_config.enabled {
-            format!(
-                "Send {} DEBUG investment proposal emails to {}?",
-                batch.len(),
-                debug_config.debug_email
-            )
-        } else {
-            format!(
-                "Send {} investment proposal emails with rate limiting?",
-                batch.len()
-            )
-        };
-
-        if !Confirm::with_theme(&ColorfulTheme::default())
-            .with_prompt(&prompt)
-            .interact()?
-        {
-            return Ok(());
-        }
-
+        // Send without confirmation in automation mode
         self.send_campaign_batch(
-            &sender,
+            sender,
             &batch,
             EmailTemplate::InvestmentProposal,
-            "first_contact",
+            "daily_automated",
             debug_config,
         )
         .await
+    }
+
+    // NEW: Extract candidate loading logic
+    async fn get_daily_campaign_candidates(
+        &self,
+        sender: &MailgunSender,
+        debug_config: &EmailDebugConfig,
+    ) -> Result<Vec<EmailRecipient>> {
+        let all_recipients = self.load_email_recipients_for_campaign(1).await?; // High-value projects
+
+        if debug_config.enabled {
+            println!("🐛 Debug mode: limiting to 3 candidates");
+            return Ok(all_recipients.into_iter().take(3).collect());
+        }
+
+        let mut candidates = Vec::new();
+        for recipient in all_recipients {
+            let status = sender
+                .check_email_status(&self.db_pool, &recipient.email)
+                .await?;
+            if status.can_send_first {
+                candidates.push(recipient);
+                if candidates.len() >= 400 {
+                    // Cap at 400
+                    break;
+                }
+            }
+        }
+
+        println!("📋 Found {} new candidates", candidates.len());
+        Ok(candidates)
+    }
+
+    // NEW: Auto-determine optimal batch size
+    async fn get_optimal_batch_size(
+        &self,
+        candidates: &[EmailRecipient],
+        debug_config: &EmailDebugConfig,
+    ) -> Result<usize> {
+        if debug_config.enabled {
+            return Ok(candidates.len().min(3));
+        }
+
+        let rate_limiter =
+            EmailRateLimiter::new(self.config.email_limits.clone(), self.db_pool.clone());
+        let status = rate_limiter.check_rate_limits(candidates.len()).await?;
+
+        if !status.can_send {
+            println!(
+                "⚠️ Rate limited: can send {} instead of {}",
+                status.recommended_batch_size,
+                candidates.len()
+            );
+        }
+
+        Ok(status.recommended_batch_size.min(candidates.len()))
     }
 
     async fn run_followup_campaign(
@@ -1042,41 +1050,6 @@ impl CliApp {
 
         debug!("Processed {} recipients", recipients.len());
         Ok(recipients)
-    }
-
-    // FROM YOUR ORIGINAL CODE - Show campaign preview
-    fn show_campaign_preview(&self, recipients: &[EmailRecipient]) {
-        println!("\n📋 Campaign Preview:");
-        println!("━━━━━━━━━━━━━━━━━━━━━");
-
-        for (i, recipient) in recipients.iter().take(5).enumerate() {
-            println!(
-                "{}. {} ({})",
-                i + 1,
-                recipient.recipient_name,
-                recipient.email
-            );
-            println!("   📦 Project: {}", recipient.repo_name);
-            println!(
-                "   🎯 Aspect: {}",
-                if recipient.specific_aspect.len() > 60 {
-                    format!("{}...", &recipient.specific_aspect[..60])
-                } else {
-                    recipient.specific_aspect.clone()
-                }
-            );
-            println!(
-                "   📊 Score: {} pts | 🏷️ {}",
-                recipient.engagement_score, recipient.domain_category
-            );
-            if i < 4 {
-                println!();
-            }
-        }
-
-        if recipients.len() > 5 {
-            println!("   ... and {} more recipients", recipients.len() - 5);
-        }
     }
 
     // Helper method to find recipient by email

@@ -79,6 +79,14 @@ impl CliApp {
                         error!("Failed to show Phase 2 progress: {}", e);
                     }
                 }
+                MenuAction::AutomatedDailyCampaign => {
+                    // Set automation mode and run
+                    std::env::set_var("AUTOMATION_MODE", "true");
+                    if let Err(e) = self.send_emails_via_mailgun().await {
+                        error!("Automated campaign failed: {}", e);
+                    }
+                    std::env::remove_var("AUTOMATION_MODE");
+                }
                 MenuAction::ExportEmails => {
                     if let Err(e) = self.run_export_emails().await {
                         error!("Email export failed: {}", e);

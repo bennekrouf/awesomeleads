@@ -14,7 +14,8 @@ pub enum MenuAction {
     Phase2FetchGithubData,
     Phase2SmartBatch,
     Phase3ExportResults,
-    AnalyzeSingleRepo, // Add this new option
+    AnalyzeSingleRepo,
+    AutomatedDailyCampaign,
     SendEmailCampaign,
     ShowStats,
     ShowPhase2Progress,
@@ -40,6 +41,10 @@ impl std::fmt::Display for MenuAction {
             }
             MenuAction::AnalyzeSingleRepo => {
                 write!(f, "🧪 Analyze Single GitHub Repository")
+            }
+            MenuAction::AutomatedDailyCampaign => {
+                // ADD THIS
+                write!(f, "🤖 Automated Daily Campaign (300 emails)")
             }
             MenuAction::SendEmailCampaign => {
                 // NEW: Add this block
