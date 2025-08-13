@@ -1,52 +1,48 @@
+# config.yml - Add web crawler configuration
 # Lead Scraper Configuration
 scraping:
-  # Skip email fetching for projects with first commit before this date
-  # Format: YYYY-MM-DD or YYYY (defaults to January 1st)
   min_first_commit_date: "2015"
-  
-  # Skip email fetching for repositories created before this date
   min_repository_created_date: "2015"
-  
-  # Rate limiting between API calls (milliseconds)
   rate_limit_delay_ms: 100
-  
-  # Timeout for individual API calls (seconds)
   api_timeout_seconds: 10
-  
-  # Maximum number of projects to process per source (0 = unlimited)
   max_projects_per_source: 0
 
 logging:
-  # Log level: trace, debug, info, warn, error
   level: "info"
-  
-  # Show progress every N projects
   progress_interval: 10
 
 output:
-  # Output directory for JSON files
   directory: "out"
-  
-  # Pretty print JSON files
   pretty_json: true
 
-
 email_limits:
-  # Daily limits for different account ages (days since first email sent)
-  new_account: 300       # First 7 days
-  established: 500       # Days 31-90
-  mature: 1000          # 90+ days
-  
-  # Rate limiting
+  new_account: 400
+  established: 500
+  mature: 1000
   emails_per_hour: 400
-  emails_per_minute: 300
-  delay_between_emails_ms: 3000  # 3 seconds minimum
-  
-  # Ramp up settings
+  emails_per_minute: 400
+  delay_between_emails_ms: 3000
   enable_auto_ramp: true
-  ramp_percentage_increase: 30   # Increase limit by 20% each week
-  max_ramp_daily_limit: 300
+  ramp_percentage_increase: 30
+  max_ramp_daily_limit: 400
+  max_emails_per_campaign: 400
+  require_confirmation_above: 50
+
+# NEW: Web crawler configuration
+web_crawler:
+  # Default crawl settings
+  default_max_pages: 3
+  default_delay_ms: 2000
+  default_timeout_seconds: 60
   
-  # Safety settings
-  max_emails_per_campaign: 400   # Hard limit per campaign run
-  require_confirmation_above: 50 # Ask for confirmation if sending more than 50
+  # Respectful crawling
+  respect_robots_txt: true
+  user_agent: "Mozilla/5.0 (compatible; ContactCrawler/1.0; +https://fabinvest.com)"
+  
+  # Contact extraction settings
+  min_confidence_threshold: 0.5
+  max_contacts_per_site: 10
+  
+  # Output settings
+  save_full_html: false
+  save_crawl_logs: true

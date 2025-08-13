@@ -1,4 +1,4 @@
-// src/cli/mod.rs - Updated to include email sending
+// src/cli/mod.rs - Updated to include web crawler
 pub mod build_project_filter;
 pub mod cli;
 pub mod display_analysis_results;
@@ -12,6 +12,8 @@ pub mod run_phase1;
 pub mod run_phase2;
 pub mod run_phase2_smart_batch;
 pub mod run_phase3;
-pub mod run_send_emails; // NEW: Add this line
+pub mod run_send_emails;
+pub mod run_web_crawler;  // NEW: Add this line
 pub mod show_database_stats;
 pub mod show_phase2_progress;
+pub mod run_business_crawler;

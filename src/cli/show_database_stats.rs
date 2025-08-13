@@ -64,6 +64,12 @@ impl CliApp {
             stats.projects_with_commit_stats
         );
 
+println!(
+            "🕷️  Crawled emails discovered: {}",
+            stats.crawled_emails_found
+        );
+
+
         if stats.avg_commits_per_project > 0.0 {
             println!(
                 "📊 Average commits per project: {:.1}",
