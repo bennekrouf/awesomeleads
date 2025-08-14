@@ -1,4 +1,4 @@
-// 4. UPDATE: src/main.rs - Add email_sender module
+// src/main.rs - Updated to include web_crawler module
 use tracing::{debug, info, warn};
 use tracing_subscriber::EnvFilter;
 
@@ -7,16 +7,17 @@ mod config;
 mod database;
 mod email_export;
 mod email_rate_limiting;
-mod email_sender; // NEW: Add this line
+mod email_sender;
 mod models;
 mod scraper_util;
 mod sources;
+mod web_crawler; // NEW: Add web crawler module
+
 use config::{load_config, Config};
 use database::create_db_pool;
 use models::CliApp;
 use tokio::signal;
 
-// Use the correct Result type
 type AppResult<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
 #[tokio::main]

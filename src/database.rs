@@ -135,41 +135,28 @@ impl Manager for SqliteManager {
     }
 }
 
+// Update init_database to include business tables
 fn init_database(conn: &Connection) -> SqliteResult<()> {
     debug!("🏗️ init_database() - Creating tables and indexes...");
 
-    debug!("📋 Creating projects table...");
-    if let Err(e) = create_projects_table(conn) {
-        log_rusqlite_error("create_projects_table", &e);
-        return Err(e);
-    }
-
-    debug!("👥 Creating contributors table...");
-    if let Err(e) = create_contributors_table(conn) {
-        log_rusqlite_error("create_contributors_table", &e);
-        return Err(e);
-    }
-
-    debug!("🌐 Creating non_github_projects table...");
-    if let Err(e) = create_non_github_projects_table(conn) {
-        log_rusqlite_error("create_non_github_projects_table", &e);
-        return Err(e);
-    }
-
-    debug!("📚 Creating sources table...");
-    if let Err(e) = create_sources_table(conn) {
-        log_rusqlite_error("create_sources_table", &e);
-        return Err(e);
-    }
-
-    debug!("🔗 Creating indexes...");
-    if let Err(e) = create_indexes(conn) {
-        log_rusqlite_error("create_indexes", &e);
-        return Err(e);
-    }
-
+    // Existing tables
+    create_projects_table(conn)?;
+    create_contributors_table(conn)?;
+    create_non_github_projects_table(conn)?;
+    create_sources_table(conn)?;
     create_email_tracking_table(conn)?;
+    create_crawler_tables(conn)?;
+    
+    // NEW: Business-focused tables
+    create_business_contact_tables(conn)?;
+
+    // Indexes
+    create_indexes(conn)?;
     create_email_tracking_indexes(conn)?;
+    create_crawler_indexes(conn)?;
+    
+    // NEW: Business indexes
+    create_business_contact_indexes(conn)?;
 
     debug!("✅ init_database() completed successfully");
     Ok(())
@@ -397,6 +384,30 @@ pub async fn get_database_stats(
 
     debug!("📊 Collecting statistics...");
 
+let crawled_emails_found = if table_exists("crawl_results")? {
+        debug!("📧 Counting crawled emails...");
+        let query = "SELECT SUM(contacts_found) FROM crawl_results WHERE success = 1";
+        debug!("📝 Query: {}", query);
+
+        match conn.query_row(query, [], |row| row.get::<_, Option<i64>>(0)) {
+            Ok(Some(count)) => {
+                debug!("✅ Crawled emails found: {}", count);
+                count
+            }
+            Ok(None) => {
+                debug!("ℹ️ No crawled emails found");
+                0
+            }
+            Err(e) => {
+                log_rusqlite_error("crawled_emails_found count", &e);
+                return Err(Box::new(e));
+            }
+        }
+    } else {
+        debug!("⏭️ Crawl results table doesn't exist, returning 0");
+        0
+    };
+
     // Get counts using query_row with detailed logging
     let total_github_projects = if projects_table_exists {
         debug!("📊 Counting total GitHub projects...");
@@ -618,6 +629,7 @@ pub async fn get_database_stats(
         projects_with_commit_stats,
         avg_commits_per_project,
         sources,
+        crawled_emails_found, 
     };
 
     debug!("✅ get_database_stats() completed successfully");
@@ -635,6 +647,7 @@ pub struct DatabaseStats {
     pub projects_with_commit_stats: i64,
     pub avg_commits_per_project: f64,
     pub sources: Vec<SourceInfo>,
+    pub crawled_emails_found: i64,
 }
 
 #[derive(Debug, Serialize)]
@@ -1144,7 +1157,246 @@ fn create_email_tracking_indexes(conn: &Connection) -> SqliteResult<()> {
     Ok(())
 }
 
-// Update your init_database function to include this table
-// Add these calls in init_database():
-// create_email_tracking_table(conn)?;
-// create_email_tracking_indexes(conn)?;
+// business-focused contact tables
+
+fn create_business_contact_tables(conn: &Connection) -> SqliteResult<()> {
+    debug!("🏢 Creating business contact tables...");
+    
+    // Companies discovered from web crawling
+    conn.execute(
+        r#"
+        CREATE TABLE IF NOT EXISTS companies (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            domain TEXT UNIQUE NOT NULL,
+            website_url TEXT NOT NULL,
+            company_type TEXT, -- startup, scale-up, enterprise, agency
+            industry TEXT,     -- web3, ai, fintech, saas, etc.
+            description TEXT,
+            employee_count_estimate TEXT, -- 1-10, 11-50, 51-200, 200+
+            funding_stage TEXT,          -- pre-seed, seed, series-a, etc.
+            location TEXT,
+            founded_year INTEGER,
+            discovered_from TEXT NOT NULL, -- Source awesome list
+            confidence_score REAL DEFAULT 0.5,
+            verified BOOLEAN DEFAULT FALSE,
+            created_at TEXT NOT NULL,
+            last_updated TEXT NOT NULL
+        )
+        "#,
+        [],
+    )?;
+
+    // Business contacts (decision makers, not developers)
+    conn.execute(
+        r#"
+        CREATE TABLE IF NOT EXISTS business_contacts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            company_id INTEGER NOT NULL,
+            email TEXT NOT NULL,
+            first_name TEXT,
+            last_name TEXT,
+            full_name TEXT,
+            job_title TEXT,
+            role_category TEXT,     -- founder, ceo, cto, marketing, sales, etc.
+            contact_type TEXT NOT NULL, -- email, phone, linkedin
+            contact_value TEXT NOT NULL,
+            context TEXT,           -- Where/how this contact was found
+            page_url TEXT,          -- Specific page where found
+            confidence REAL NOT NULL,
+            is_decision_maker BOOLEAN DEFAULT FALSE,
+            linkedin_profile TEXT,
+            twitter_profile TEXT,
+            phone_number TEXT,
+            seniority_level TEXT,   -- c-level, vp, director, manager, individual
+            department TEXT,        -- engineering, marketing, sales, product
+            discovered_at TEXT NOT NULL,
+            last_contacted TEXT,
+            email_status TEXT DEFAULT 'never_contacted', -- never_contacted, sent, bounced, replied
+            notes TEXT,
+            FOREIGN KEY (company_id) REFERENCES companies (id),
+            UNIQUE(email, company_id)
+        )
+        "#,
+        [],
+    )?;
+
+    // Company technologies and signals
+    conn.execute(
+        r#"
+        CREATE TABLE IF NOT EXISTS company_signals (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            company_id INTEGER NOT NULL,
+            signal_type TEXT NOT NULL, -- technology, funding, hiring, product_launch
+            signal_value TEXT NOT NULL,
+            confidence REAL NOT NULL,
+            source_page TEXT,
+            detected_at TEXT NOT NULL,
+            FOREIGN KEY (company_id) REFERENCES companies (id)
+        )
+        "#,
+        [],
+    )?;
+
+    // Investment readiness scoring
+    conn.execute(
+        r#"
+        CREATE TABLE IF NOT EXISTS investment_scores (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            company_id INTEGER NOT NULL,
+            total_score INTEGER NOT NULL,
+            growth_signals INTEGER DEFAULT 0,    -- hiring, funding mentions, traction
+            tech_maturity INTEGER DEFAULT 0,     -- modern stack, scalability
+            market_potential INTEGER DEFAULT 0,  -- large market, disruptive
+            team_quality INTEGER DEFAULT 0,      -- senior team, track record
+            contact_quality INTEGER DEFAULT 0,   -- decision maker access
+            last_calculated TEXT NOT NULL,
+            FOREIGN KEY (company_id) REFERENCES companies (id)
+        )
+        "#,
+        [],
+    )?;
+
+    debug!("✅ Business contact tables created");
+    Ok(())
+}
+
+fn create_business_contact_indexes(conn: &Connection) -> SqliteResult<()> {
+    debug!("🔗 Creating business contact indexes...");
+    
+    let indexes = [
+        // Companies
+        "CREATE INDEX IF NOT EXISTS idx_companies_domain ON companies(domain)",
+        "CREATE INDEX IF NOT EXISTS idx_companies_industry ON companies(industry)",
+        "CREATE INDEX IF NOT EXISTS idx_companies_type ON companies(company_type)",
+        "CREATE INDEX IF NOT EXISTS idx_companies_confidence ON companies(confidence_score DESC)",
+        "CREATE INDEX IF NOT EXISTS idx_companies_verified ON companies(verified)",
+        
+        // Business contacts
+        "CREATE INDEX IF NOT EXISTS idx_business_contacts_company ON business_contacts(company_id)",
+        "CREATE INDEX IF NOT EXISTS idx_business_contacts_email ON business_contacts(email)",
+        "CREATE INDEX IF NOT EXISTS idx_business_contacts_role ON business_contacts(role_category)",
+        "CREATE INDEX IF NOT EXISTS idx_business_contacts_decision_maker ON business_contacts(is_decision_maker)",
+        "CREATE INDEX IF NOT EXISTS idx_business_contacts_seniority ON business_contacts(seniority_level)",
+        "CREATE INDEX IF NOT EXISTS idx_business_contacts_status ON business_contacts(email_status)",
+        
+        // Company signals
+        "CREATE INDEX IF NOT EXISTS idx_company_signals_company ON company_signals(company_id)",
+        "CREATE INDEX IF NOT EXISTS idx_company_signals_type ON company_signals(signal_type)",
+        
+        // Investment scores
+        "CREATE INDEX IF NOT EXISTS idx_investment_scores_company ON investment_scores(company_id)",
+        "CREATE INDEX IF NOT EXISTS idx_investment_scores_total ON investment_scores(total_score DESC)",
+    ];
+
+    for (i, index_sql) in indexes.iter().enumerate() {
+        debug!("🔗 Creating business index {}/{}", i + 1, indexes.len());
+        conn.execute(index_sql, [])?;
+    }
+
+    debug!("✅ All business contact indexes created");
+    Ok(())
+}
+
+
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Company {
+    pub id: Option<i64>,
+    pub name: String,
+    pub domain: String,
+    pub website_url: String,
+    pub company_type: Option<String>,
+    pub industry: Option<String>,
+    pub description: Option<String>,
+    pub employee_count_estimate: Option<String>,
+    pub funding_stage: Option<String>,
+    pub location: Option<String>,
+    pub founded_year: Option<i32>,
+    pub discovered_from: String,
+    pub confidence_score: f64,
+    pub verified: bool,
+    pub created_at: DateTime<Utc>,
+    pub last_updated: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BusinessContact {
+    pub id: Option<i64>,
+    pub company_id: i64,
+    pub email: String,
+    pub first_name: Option<String>,
+    pub last_name: Option<String>,
+    pub full_name: Option<String>,
+    pub job_title: Option<String>,
+    pub role_category: Option<String>,
+    pub contact_type: String,
+    pub contact_value: String,
+    pub context: Option<String>,
+    pub page_url: Option<String>,
+    pub confidence: f64,
+    pub is_decision_maker: bool,
+    pub linkedin_profile: Option<String>,
+    pub twitter_profile: Option<String>,
+    pub phone_number: Option<String>,
+    pub seniority_level: Option<String>,
+    pub department: Option<String>,
+    pub discovered_at: DateTime<Utc>,
+    pub last_contacted: Option<DateTime<Utc>>,
+    pub email_status: String,
+    pub notes: Option<String>,
+}
+
+// #[derive(Debug)]
+// pub struct BusinessStatistics {
+//     pub total_companies: i64,
+//     pub verified_companies: i64,
+//     pub total_business_contacts: i64,
+//     pub decision_maker_contacts: i64,
+//     pub c_level_contacts: i64,
+//     pub companies_by_industry: std::collections::HashMap<String, i64>,
+//     pub companies_by_type: std::collections::HashMap<String, i64>,
+//     pub avg_investment_score: f64,
+// }
+
+fn create_crawler_tables(conn: &Connection) -> SqliteResult<()> {
+    debug!("🕷️  Creating web crawler tables...");
+    
+    // Simple crawl results table
+    conn.execute(
+        r#"
+        CREATE TABLE IF NOT EXISTS crawl_results (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            original_url TEXT NOT NULL,
+            pages_crawled INTEGER NOT NULL,
+            contacts_found INTEGER NOT NULL,
+            best_contacts TEXT, -- JSON array of contacts
+            crawl_duration_ms INTEGER NOT NULL,
+            success BOOLEAN NOT NULL,
+            error_message TEXT,
+            crawled_at TEXT NOT NULL
+        )
+        "#,
+        [],
+    )?;
+
+    debug!("✅ Web crawler tables created");
+    Ok(())
+}
+
+fn create_crawler_indexes(conn: &Connection) -> SqliteResult<()> {
+    debug!("🔗 Creating web crawler indexes...");
+    
+    let indexes = [
+        "CREATE INDEX IF NOT EXISTS idx_crawl_results_url ON crawl_results(original_url)",
+        "CREATE INDEX IF NOT EXISTS idx_crawl_results_success ON crawl_results(success)",
+        "CREATE INDEX IF NOT EXISTS idx_crawl_results_crawled_at ON crawl_results(crawled_at DESC)",
+    ];
+
+    for index_sql in indexes.iter() {
+        conn.execute(index_sql, [])?;
+    }
+
+    debug!("✅ All crawler indexes created");
+    Ok(())
+}

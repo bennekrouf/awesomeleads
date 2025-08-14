@@ -17,13 +17,15 @@ impl CliApp {
         loop {
             let actions = vec![
                 MenuAction::Phase1ScrapeUrls,
-                MenuAction::Phase2SmartBatch, // NEW: Prioritize this option
+                MenuAction::Phase2SmartBatch,
                 MenuAction::Phase2FetchGithubData,
                 MenuAction::Phase3ExportResults,
                 MenuAction::AnalyzeSingleRepo,
+                MenuAction::WebCrawlerContactDiscovery,
+                MenuAction::BusinessContactDiscovery, // NEW: Add this line
                 MenuAction::SendEmailCampaign,
                 MenuAction::ShowStats,
-                MenuAction::ShowPhase2Progress, // NEW: Progress trackin
+                MenuAction::ShowPhase2Progress,
                 MenuAction::ExportEmails,
                 MenuAction::DebugEnvironmentCheck,
                 MenuAction::Exit,
@@ -47,7 +49,6 @@ impl CliApp {
                     }
                 }
                 MenuAction::Phase2SmartBatch => {
-                    // NEW
                     if let Err(e) = self.run_phase2_smart_batch().await {
                         error!("Smart Phase 2 failed: {}", e);
                     }
@@ -62,25 +63,33 @@ impl CliApp {
                         error!("Single repo analysis failed: {}", e);
                     }
                 }
+                MenuAction::WebCrawlerContactDiscovery => {
+                    if let Err(e) = self.run_web_crawler().await {
+                        error!("Web crawler failed: {}", e);
+                    }
+                }
+                MenuAction::BusinessContactDiscovery => {
+                    // NEW: Add this case
+                    if let Err(e) = self.run_business_crawler().await {
+                        error!("Business crawler failed: {}", e);
+                    }
+                }
                 MenuAction::ShowStats => {
                     if let Err(e) = self.show_database_stats().await {
                         error!("Failed to show stats: {}", e);
                     }
                 }
                 MenuAction::SendEmailCampaign => {
-                    // NEW: Add this block
                     if let Err(e) = self.send_emails_via_mailgun().await {
                         error!("Email campaign failed: {}", e);
                     }
                 }
                 MenuAction::ShowPhase2Progress => {
-                    // NEW
                     if let Err(e) = self.show_phase2_progress().await {
                         error!("Failed to show Phase 2 progress: {}", e);
                     }
                 }
                 MenuAction::AutomatedDailyCampaign => {
-                    // Set automation mode and run
                     std::env::set_var("AUTOMATION_MODE", "true");
                     if let Err(e) = self.send_emails_via_mailgun().await {
                         error!("Automated campaign failed: {}", e);
@@ -93,7 +102,6 @@ impl CliApp {
                     }
                 }
                 MenuAction::DebugEnvironmentCheck => {
-                    // ADD THIS CASE
                     if let Err(e) = self.debug_environment_check().await {
                         error!("Debug environment check failed: {}", e);
                     }
