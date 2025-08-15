@@ -29,7 +29,7 @@ pub struct ProjectFilter {
     pub sql_filter: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct Phase2Progress {
     pub complete: i64,
     pub partial: i64,

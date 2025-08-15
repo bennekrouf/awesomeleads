@@ -1,7 +1,8 @@
-// src/main.rs - Updated to include web_crawler module
+// src/main.rs - Complete version with server support
 use tracing::{debug, info, warn};
 use tracing_subscriber::EnvFilter;
 
+mod api;
 mod cli;
 mod config;
 mod database;
@@ -10,8 +11,9 @@ mod email_rate_limiting;
 mod email_sender;
 mod models;
 mod scraper_util;
+mod server;
 mod sources;
-mod web_crawler; // NEW: Add web crawler module
+mod web_crawler;
 
 use config::{load_config, Config};
 use database::create_db_pool;
@@ -88,7 +90,25 @@ async fn main() -> AppResult<()> {
     let db_pool = create_db_pool("data/projects.db").await?;
     debug!("✅ Database pool created successfully");
 
-    // Initialize and run CLI app
+    // Check for --server argument
+    let args: Vec<String> = std::env::args().collect();
+    if args.iter().any(|arg| arg == "--server") {
+        info!("🚀 Starting in server mode...");
+        let rocket = server::build_rocket(config, db_pool);
+        rocket
+            .launch()
+            .await
+            .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> {
+                Box::new(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    e.to_string(),
+                ))
+            })?;
+        return Ok(());
+    }
+
+    // Default CLI mode
+    info!("🖥️  Starting in CLI mode...");
     debug!("🏗️ About to create CliApp...");
     let app = CliApp::new(config, db_pool).await?;
     debug!("✅ CliApp created successfully");
@@ -109,3 +129,4 @@ async fn main() -> AppResult<()> {
     debug!("👋 Application shutdown complete");
     Ok(())
 }
+
